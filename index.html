@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="strict-origin-when-cross-origin"><!-- the userscript only takes jobs from links whose referrer is this site -->
 <meta name="marks-api" content="https://travian-scout-marks.bruceisgay.workers.dev/ts32">
 <title>TS32 Alliance Scout</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -114,11 +115,15 @@ mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: in
 .ck input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .ck input:disabled { cursor: default; }
 .row.done > :not(.ck) { opacity: .4; }
+.ozb { display: inline-flex; align-items: center; gap: 4px; padding: 2px 0 2px 3px; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.ozb:hover { color: var(--accent); }
+.ozb::before { content: ""; border-style: solid; border-color: currentColor transparent transparent; border-width: 5px 4px 0; color: var(--muted); }
+.ozb[aria-expanded="true"]::before { border-color: transparent transparent currentColor; border-width: 0 4px 5px; }
 .sc { display: flex; justify-content: flex-end; gap: 4px; }
-.send { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); font-size: 12px; font-weight: 600; text-decoration: none; }
+.send { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); font: 600 12px var(--body); cursor: pointer; }
 .send:hover { border-color: var(--accent); color: var(--accent); }
-.send.all { background: var(--sunk); cursor: pointer; padding: 0; }
-.send.off { color: var(--muted); border-style: dashed; }
+.send.all { background: var(--sunk); }
+.send[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
 .empty { padding: 10px 14px 12px calc(38px + var(--ind, 0px)); color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
 .flash { animation: flash 1.4s ease-out; }
 @keyframes flash { from { background: color-mix(in srgb, var(--accent) 30%, transparent); } to { background: transparent; } }
@@ -151,9 +156,8 @@ canvas.over { cursor: pointer; }
 .legend .sq { width: 8px; height: 8px; border-radius: 1px; background: var(--sw); }
 .legend .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sw); }
 .legend .dia { width: 7px; height: 7px; background: var(--muted); transform: rotate(45deg); margin: 0 1px; }
-.legend .tri { width: 0; height: 0; border: solid transparent; border-width: 0 5px 9px; border-bottom-color: var(--fg); }
 .legend .ring { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--muted); box-shadow: inset 0 0 0 2px var(--surface), inset 0 0 0 6px var(--muted); }
-/* the village scouts go from */
+/* how many scouts A, B and C send, and the report */
 .from { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
 .fromhd { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
 .from h3 { font: 600 15px/1 var(--display); text-transform: uppercase; letter-spacing: .03em; margin: 0; }
@@ -163,14 +167,19 @@ canvas.over { cursor: pointer; }
 .field.per { grid-auto-flow: column; align-items: center; gap: 6px; }
 .field.per > span { font: 600 13px var(--body); color: var(--fg); letter-spacing: 0; }
 .field.per input { width: 80px; height: 28px; }
-.fromlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 4px; }
-.fv { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; font-size: 13px; cursor: pointer; }
-.fv:hover { border-color: var(--accent); }
-.fv:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.fv input { margin: 0; accent-color: var(--accent); }
-.fv .lbl { flex: 1; }
-.fv .num { font-size: 11px; color: var(--muted); }
-.fv.low .num { color: var(--bad); }
+.autorow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13px; }
+.autorow select { height: 28px; padding: 0 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); }
+.autohint { font-size: 12px; color: var(--muted); }
+.autohint.need { color: var(--bad); }
+/* the picked targets and their Send button */
+.sendbar { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 8px 8px 8px 14px; border-radius: 6px; background: var(--fg); color: var(--bg); font-size: 13px; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
+.sendbar[hidden] { display: none; }
+.sendbar span { flex: 1 1 auto; }
+.sendbar button { height: 30px; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--bg) 45%, transparent); border-radius: 4px; background: transparent; color: var(--bg); font: 600 13px var(--body); cursor: pointer; }
+.sendbar #go { background: var(--accent); border-color: var(--bg); color: var(--surface); }
+.sendbar #go:disabled { opacity: .5; cursor: default; }
+body:has(.sendbar:not([hidden])) { padding-bottom: 64px; }
+body:has(.sendbar:not([hidden])) .toast { bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
 .hint, .meta { font-size: 12px; color: var(--muted); }
 .meta { border-top: 1px solid var(--line); padding-top: 8px; }
 .toast { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 4px; font-size: 13px; z-index: 5; }
@@ -206,20 +215,29 @@ canvas.over { cursor: pointer; }
       </div>
       <label class="check"><input type="checkbox" id="fit" checked> Zoom to expanded players</label>
       <section class="from" aria-labelledby="fromh">
-        <div class="fromhd"><h3 id="fromh">Send scouts from <span>Minerva</span></h3>
-          <div class="amts" id="per"><span>Scouts per send</span>
+        <div class="fromhd"><h3 id="fromh">Send scouts <span>as Minerva</span></h3>
+          <div class="amts" id="per"><span>Scouts per target</span>
             <label class="field per"><span>A</span><input type="number" min="1" step="1" inputmode="numeric" aria-label="Scouts for A"></label>
             <label class="field per"><span>B</span><input type="number" min="1" step="1" inputmode="numeric" aria-label="Scouts for B"></label>
             <label class="field per"><span>C</span><input type="number" min="1" step="1" inputmode="numeric" aria-label="Scouts for C"></label>
           </div>
         </div>
-        <div class="fromlist" id="from" role="radiogroup" aria-labelledby="fromh"></div>
+        <div class="autorow">
+          <select id="spy" aria-label="Scouting report"><option value="1">Report resources and troops</option><option value="2">Report defences and troops</option></select>
+          <span class="autohint" id="autohint"></span>
+        </div>
+        <div class="hint">Scouts go from 22 first, then 21 and on down to 06, then 99a. When a village has too few scouts home, the next one sends.</div>
       </section>
       <div class="legend" id="legend"></div>
-      <div class="hint">Expand a player to draw their villages. Lines join each oasis to its village. Click a village on the map to open it in the list. Tick a row once you've scouted it. Ticks are shared: anyone with this page's link sees them and can change them. A, B and C open the game's rally point with the village picked above, the target and that many scouts filled in. On a player's row they open one tab per oasis of theirs not ticked yet; allow pop-ups for this page so the browser lets them all open. They send nothing until you confirm in game, and need you logged in as Minerva.</div>
+      <div class="hint">Expand a player to draw their villages; click their oasis count to show all their oases. Lines join each oasis to its village. Click a village on the map to open it in the list. Tick a row once you've scouted it. Ticks are shared: anyone with this page's link sees them and can change them. A, B and C pick a target and how many scouts it gets; on a player's row they pick each of their oases not ticked yet. Send ticks every picked target and sends scouts to each, one at a time, in a new game tab. It needs the userscript and the game logged in as Minerva.</div>
       <div class="meta" id="meta"></div>
     </aside>
   </main>
+</div>
+<div class="sendbar" id="sendbar" role="region" aria-label="Picked targets" hidden>
+  <span id="picksum"></span>
+  <button id="clear" type="button">Clear</button>
+  <button id="go" type="button">Send</button>
 </div>
 
 <script>
@@ -230,17 +248,17 @@ const fold = s => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const xy = (x, y) => `(${x}|${y})`;
 const SLOTS = 8;  // distinct player colours; past this many drawn players the map colours by alliance
-// Minerva's villages scouts go from: game village id, coordinates, and Equites Legati (t4) in the troop overview on 2026-10-22.
+// Minerva's villages scouts go from, in the order they're used: 22 down to 06, then 99a. Game village ids.
 const FROM = [
-  ["99a Hefei", 72712, -36, -45, 27193], ["06 Hangzhou", 65646, -55, -149, 55095], ["07 Beijing", 57013, -66, -140, 48814],
-  ["08 Nanjing", 67735, -53, -135, 7158], ["09 Wuxi", 75040, -56, -147, 16340], ["10 Ningbo", 75046, -55, -147, 16958],
-  ["11 Luoyang", 75134, -54, -150, 19030], ["12 Qingdao", 74262, -58, -152, 20759], ["13 Puning", 66816, -55, -168, 26771],
-  ["14 Kunming", 70846, -57, -159, 26744], ["15 Guiyang", 74913, -47, -129, 203], ["16 Zhengzhou", 71330, -40, -160, 27319],
-  ["17 Wenzhou", 72898, -51, -167, 30079], ["18 Harbin", 70462, -44, -154, 23691], ["19 Chaozhou", 71745, -42, -173, 29473],
-  ["20 Dongguan", 72451, -45, -173, 28437], ["21 Xi'an", 62494, -48, -139, 29230], ["22 Handan", 74498, -66, -161, 24307],
-].map(([name, did, x, y, scouts]) => ({ name, did, x, y, scouts }));
-const FROM_KEY = "ts32-scout-from", PER_KEY = "ts32-scout-amounts", SENDS = ["A", "B", "C"];
-let from = null, per = [100, 500, 2000];  // scouts for the A, B and C buttons
+  ["22 Handan", 74498], ["21 Xi'an", 62494], ["20 Dongguan", 72451], ["19 Chaozhou", 71745], ["18 Harbin", 70462], ["17 Wenzhou", 72898],
+  ["16 Zhengzhou", 71330], ["15 Guiyang", 74913], ["14 Kunming", 70846], ["13 Puning", 66816], ["12 Qingdao", 74262], ["11 Luoyang", 75134],
+  ["10 Ningbo", 75046], ["09 Wuxi", 75040], ["08 Nanjing", 67735], ["07 Beijing", 57013], ["06 Hangzhou", 65646], ["99a Hefei", 72712],
+].map(([name, did]) => ({ name, did }));
+const PER_KEY = "ts32-scout-amounts", SPY_KEY = "ts32-scout-spy", SENDS = ["A", "B", "C"];
+let per = [100, 500, 2000];  // scouts for A, B and C
+let spy = "1", sender = "";  // the scouting report, the userscript's version if it's here
+const picked = new Map();  // "x|y" -> { t, i }: the targets picked, in the order they were, and which of A, B, C each gets
+const byKey = new Map();  // "x|y" -> its village or oasis
 
 let D, S2, alliances, players, villages, oases;
 const byUid = new Map();
@@ -346,15 +364,16 @@ function init() {
   for (const t of [...new Set(players.map(p => p.tribe).filter(Boolean))].sort()) $("#tribe").add(new Option(t, t));
   $("#meta").innerHTML = `Snapshot <span class="num">${esc(D.snapshot.slice(0, 16).replace("T", " "))}</span> UTC · `
     + `<a href="${D.server}" target="_blank" rel="noopener">${esc(new URL(D.server).hostname)}</a>`;
-  $("#from").innerHTML = FROM.map(f => `<label class="fv" title="${esc(`${xy(f.x, f.y)} · ${fmt(f.scouts)} scouts`)}"><input type="radio" name="from" value="${f.did}"><span class="lbl">${esc(f.name)}</span><span class="num">${fmt(f.scouts)}</span></label>`).join("");
+  for (const t of [...villages, ...oases]) byKey.set(vkey(t), t);
   try {
     $("#who").value = localStorage.getItem(NAME) || "";
-    from = FROM.find(f => f.did === +localStorage.getItem(FROM_KEY)) || null;
     const kept = JSON.parse(localStorage.getItem(PER_KEY) || "null");
     if (Array.isArray(kept) && kept.length === SENDS.length && kept.every(n => Number.isInteger(n) && n >= 1)) per = kept;
+    spy = localStorage.getItem(SPY_KEY) === "2" ? "2" : "1";
   } catch { /* no storage */ }
+  sender = document.documentElement.dataset.scoutSender || "";
+  syncAuto();
   document.querySelectorAll("#per input").forEach((el, i) => { el.value = per[i]; });
-  syncFrom();
   readHash();
   bind();
   render();
@@ -448,7 +467,7 @@ function render() {
       const po = openP(p, vis);
       h.push(`<div class="row p lvl1${doneP(p) ? " done" : ""}" data-hp="${p.uid}">${ck("p", p.k, p.name, null, partP(p))}
         <span class="namecell"><button class="tg" type="button" data-p="${p.uid}" aria-expanded="${po}"><span class="car"></span>${po ? `<i class="sw" style="--sw:${colorVar(p)}"></i>` : `<i class="sw off"></i>`}<span class="lbl">${hl(p.name, q)}</span></button><a class="out" href="${D.server}/profile/${p.uid}" target="_blank" rel="noopener" title="Profile in game" aria-label="${esc(p.name)} profile in game">↗</a></span>
-        <span class="t c-tribe">${esc(p.tribe || "")}</span><span class="n c-vil">${p.vil.length}</span><span class="n">${fmt(p.pop)}</span><span class="n">${p.oz.length}</span>${sendAll(p)}</div>`);
+        <span class="t c-tribe">${esc(p.tribe || "")}</span><span class="n c-vil">${p.vil.length}</span><span class="n">${fmt(p.pop)}</span>${ozCount(p, po)}${pickAll(p)}</div>`);
       if (po) h.push(playerKids(p, q));
     }
     h.push(`</div>`);
@@ -460,13 +479,28 @@ function render() {
   drawMap();
 }
 
+// A player's oasis count opens every village of theirs that has oases, so all the oases show; again closes them.
+const ozVillages = p => p.vil.filter(v => v.oz.length);
+function ozCount(p, po) {
+  const vs = ozVillages(p);
+  if (!vs.length) return `<span class="n">${p.oz.length}</span>`;
+  const all = po && vs.every(v => state.openV.has(v.i));
+  return `<span class="n"><button class="ozb" type="button" data-oz="${p.uid}" aria-expanded="${all}" title="${esc(`${all ? "Hide" : "Show"} all ${p.oz.length} oases of ${p.name}`)}">${p.oz.length}</button></span>`;
+}
+function toggleOases(uid) {
+  const p = byUid.get(uid), vs = ozVillages(p), po = openP(p, visible());
+  if (po && vs.every(v => state.openV.has(v.i))) { for (const v of vs) state.openV.delete(v.i); return; }
+  if (!po) toggleP(uid);
+  for (const v of vs) state.openV.add(v.i);
+}
+
 function playerKids(p, q) {
   const h = [`<div class="kids">`];
   for (const v of p.vil) {
     const has = v.oz.length > 0, vo = has && state.openV.has(v.i), name = `<span class="car"></span><span class="lbl">${hl(v.name, q)}</span>`;
     h.push(`<div class="row v lvl2${doneV(v) ? " done" : ""}" data-hv="${v.i}">${ck("v", vkey(v), v.name, doneP(p) ? { name: "player", m: marks.p.get(p.k) } : null, partV(v))}
       <span class="namecell">${has ? `<button class="tg" type="button" data-v="${v.i}" aria-expanded="${vo}">${name}</button>` : `<span class="tg leaf">${name}</span>`}${mapLink(v.x, v.y)}${v.cap ? `<span class="cap">Capital</span>` : ""}</span>
-      <span class="art c-tribe" title="${esc(v.art)}">${esc(v.art)}</span><span class="c-vil"></span><span class="n">${fmt(v.pop)}</span><span class="n">${v.oz.length || ""}</span>${send(v, v.name)}</div>`);
+      <span class="art c-tribe" title="${esc(v.art)}">${esc(v.art)}</span><span class="c-vil"></span><span class="n">${fmt(v.pop)}</span><span class="n">${v.oz.length || ""}</span>${pick(v, v.name)}</div>`);
     if (vo) for (const o of v.oz) h.push(oasisRow(o));
   }
   if (p.loose.length) h.push(`<div class="empty lvl2">Oases not placed with a village: ${p.loose.map(o => `${xy(o.x, o.y)} ${esc(o.bonus)}`).join("; ")}</div>`);
@@ -481,7 +515,7 @@ function oasisRow(o) {
     ? `<span class="tie" title="Same bonus type and in reach of each of these villages, so the game data can't tell which one holds it.">Could also belong to ${others.map(v => `${esc(v.name)} ${xy(v.x, v.y)}`).join(", ")}</span>` : "";
   const via = doneP(o.p) ? { name: "player", m: marks.p.get(o.p.k) }
     : o.vil[0] && marks.v.has(vkey(o.vil[0])) ? { name: "village", m: marks.v.get(vkey(o.vil[0])) } : null;
-  return `<div class="row o lvl3${doneO(o) ? " done" : ""}" data-ho="${o.i}">${ck("o", vkey(o), `oasis ${xy(o.x, o.y)}`, via, false)}<span class="ocell">${mapLink(o.x, o.y)}${bonus(o.bonus)}${tie}</span>${send(o, `oasis ${xy(o.x, o.y)}`)}</div>`;
+  return `<div class="row o lvl3${doneO(o) ? " done" : ""}" data-ho="${o.i}">${ck("o", vkey(o), `oasis ${xy(o.x, o.y)}`, via, false)}<span class="ocell">${mapLink(o.x, o.y)}${bonus(o.bonus)}${tie}</span>${pick(o, `oasis ${xy(o.x, o.y)}`)}</div>`;
 }
 
 // The scouted tick, titled with who ticked it and when; a row covered by its player's or village's tick shows it ticked and locked.
@@ -491,45 +525,57 @@ function ck(kind, key, label, via, part) {
   return `<span class="ck"${title ? ` title="${esc(title)}"` : ""}><input type="checkbox" data-m${kind}="${esc(key)}"${m ? " checked" : ""}${via ? " disabled" : ""}${part ? " data-part" : ""} aria-label="Scouted: ${esc(label)}"></span>`;
 }
 
-// The game's rally point send form, filled in: from the picked village, to this tile, as a raid of scouts only.
-// Nothing goes until whoever sits Minerva presses Send and then Confirm in game.
-const dist = (a, b) => Math.hypot(wrapc(b.x - a.x), wrapc(b.y - a.y));
-const sendUrl = (t, i) => `${D.server}/build.php?newdid=${from.did}&gid=16&tt=2&eventType=4&x=${t.x}&y=${t.y}&troop%5Bt4%5D=${per[i]}`;
-const OFF = `title="Pick the village to send from, under the map"`;
-function send(t, label) {
-  const away = from && dist(from, t).toFixed(1);
-  return `<span class="sc">${SENDS.map((k, i) => from
-    ? `<a class="send" href="${esc(sendUrl(t, i))}" target="_blank" rel="noopener" data-go="${k}${vkey(t)}"`
-      + ` title="${esc(`${k}: send ${fmt(per[i])} scouts from ${from.name} to ${xy(t.x, t.y)}, ${away} fields away`)}" aria-label="Scout ${esc(label)} with ${fmt(per[i])} from ${esc(from.name)}">${k}</a>`
-    : `<a class="send off" href="#from" data-go="${k}${vkey(t)}" ${OFF} aria-label="Scout ${esc(label)}, ${k}">${k}</a>`).join("")}</span>`;
+// A, B and C pick a target and how many scouts go to it; the picked one again unpicks it.
+function pick(t, label) {
+  const k = vkey(t), on = picked.get(k)?.i;
+  return `<span class="sc">${SENDS.map((s, i) => `<button class="send" type="button" data-pick="${i}:${k}" aria-pressed="${on === i}"`
+    + ` title="${esc(`${s}: ${on === i ? "unpick" : "pick"} ${xy(t.x, t.y)}, ${fmt(per[i])} scouts`)}" aria-label="${esc(`${label}: ${s}, ${fmt(per[i])} scouts`)}">${s}</button>`).join("")}</span>`;
 }
-// A player's row sends to each of their oases not ticked yet: one tab per oasis.
+// On a player's row they pick each of their oases not ticked yet, or unpick them all when all already are.
 const oasesLeft = p => [...p.vil.flatMap(v => v.oz), ...p.loose].filter(o => !doneO(o));  // in list order
-function sendAll(p) {
-  const n = oasesLeft(p).length;
-  if (!n) return `<span></span>`;
-  return `<span class="sc">${SENDS.map((k, i) => `<button class="send all${from ? "" : " off"}" type="button" data-all="${i}:${p.uid}" `
-    + (from ? `title="${esc(`${k}: open ${n} tabs, one per oasis of ${p.name} not ticked yet, ${fmt(per[i])} scouts each from ${from.name}`)}"` : OFF)
-    + ` aria-label="Scout all ${n} oases of ${esc(p.name)} with ${k}">${k}</button>`).join("")}</span>`;
-}
-// Browsers let one click open one tab; the rest need pop-ups allowed for this page.
-function sendOases(p, i) {
+function pickAll(p) {
   const left = oasesLeft(p);
-  if (left.length > 5 && !confirm(`Open ${left.length} tabs, one per oasis of ${p.name}, each with ${fmt(per[i])} scouts from ${from.name}?`)) return;
-  let opened = 0;
-  for (const o of left) {
-    const w = window.open(sendUrl(o, i), "_blank");
-    if (!w) break;
-    w.opener = null; opened++;
-  }
-  if (opened < left.length) toast(`Your browser blocked ${left.length - opened} of ${left.length} tabs. Allow pop-ups for this page in the address bar, then click again.`);
+  if (!left.length) return `<span></span>`;
+  return `<span class="sc">${SENDS.map((s, i) => {
+    const on = left.every(o => picked.get(vkey(o))?.i === i);
+    return `<button class="send all" type="button" data-pall="${i}:${p.uid}" aria-pressed="${on}"`
+      + ` title="${esc(`${s}: ${on ? "unpick" : "pick"} the ${left.length} oases of ${p.name} not ticked yet, ${fmt(per[i])} scouts each`)}" aria-label="${esc(`All ${left.length} oases of ${p.name}: ${s}`)}">${s}</button>`;
+  }).join("")}</span>`;
 }
-function syncFrom() {
-  for (const el of document.querySelectorAll("#from .fv")) {
-    const box = el.querySelector("input"), f = FROM.find(f => f.did === +box.value);
-    box.checked = f === from;
-    el.classList.toggle("low", f.scouts < Math.min(...per));
-  }
+function pickOne(t, i) { const k = vkey(t); picked.get(k)?.i === i ? picked.delete(k) : picked.set(k, { t, i }); }
+function pickOases(p, i) {
+  const left = oasesLeft(p), all = left.every(o => picked.get(vkey(o))?.i === i);
+  for (const o of left) all ? picked.delete(vkey(o)) : picked.set(vkey(o), { t: o, i });
+}
+function syncPicks() {
+  const n = picked.size, ps = [...picked.values()];
+  $("#sendbar").hidden = !n;
+  if (!n) return;
+  const by = SENDS.map((s, i) => [s, ps.filter(p => p.i === i).length]).filter(([, c]) => c);
+  $("#picksum").textContent = `${n} target${n > 1 ? "s" : ""} · ${by.map(([s, c]) => `${c} ${s}`).join(", ")} · ${fmt(ps.reduce((a, p) => a + per[p.i], 0))} scouts`;
+  $("#go").disabled = !sender;
+  $("#go").title = sender ? "Send to each picked target, one at a time, in a new game tab" : "Install the userscript first: the link is under the map";
+}
+// Send hands the picked targets to the userscript as a job in a game tab's hash: the villages in the order to
+// try them, each target with its scouts, and the report. The tab opens on the first send form, so it starts there.
+// It also ticks each target as scouted, for everyone.
+function sendPicked() {
+  const ts = [...picked.values()].map(({ t, i }) => [t.x, t.y, per[i]]);
+  if (!sender || !ts.length) return;
+  const job = { v: FROM.map(f => [f.did, f.name]), t: ts, s: spy }, [x, y, n] = ts[0];
+  const url = `${D.server}/build.php?newdid=${FROM[0].did}&gid=16&tt=2&eventType=4&x=${x}&y=${y}&troop%5Bt4%5D=${n}`;
+  const w = window.open(`${url}#travian-scout=${encodeURIComponent(JSON.stringify(job))}`, "_blank");
+  if (!w) return toast("Your browser blocked the game tab. Allow pop-ups for this page, then press Send again.");
+  w.opener = null;
+  const isO = t => "bonus" in t;
+  for (const { t } of picked.values()) if (!(isO(t) ? doneO(t) : doneV(t))) setMark(isO(t) ? "o" : "v", vkey(t), true);
+  picked.clear(); syncPicks(); render();
+  toast(`Sending to ${ts.length} target${ts.length > 1 ? "s" : ""} in the new tab.`);
+}
+function syncAuto() {
+  $("#spy").value = spy;
+  $("#autohint").classList.toggle("need", !sender);
+  $("#autohint").innerHTML = sender ? `Userscript ${esc(sender)} is on.` : `Sending needs the userscript: <a href="travian-scout.user.js">install it</a>, then reload this page.`;
 }
 
 function syncControls() {
@@ -611,17 +657,11 @@ function drawMap() {
     ctx.globalAlpha = 1; ctx.strokeStyle = token("--fg"); ctx.lineWidth = 1.5 * dpr;
     for (const t of hover) { ctx.beginPath(); ctx.arc(px(t.x), py(t.y), Math.max(r * .7, 2.4 * dpr) + 3.5 * dpr, 0, 7); ctx.stroke(); }
   }
-  // the village scouts go from
-  if (from) {
-    const q = Math.max(r, 5 * dpr), x = px(from.x), y = py(from.y);
-    ctx.globalAlpha = 1; ctx.beginPath(); ctx.moveTo(x, y - q); ctx.lineTo(x + q, y + q * .8); ctx.lineTo(x - q, y + q * .8); ctx.closePath();
-    ctx.fillStyle = token("--fg"); ctx.fill(); ctx.lineWidth = Math.max(1, dpr); ctx.strokeStyle = surf; ctx.stroke();
-  }
   ctx.globalAlpha = 1;
   drawLegend();
 }
 function drawLegend() {
-  const rows = [`<div><span>All villages:</span>${alliances.map(a => `<span class="key"><i class="sq" style="--sw:var(${a.color})"></i>${esc(a.tag)}</span>`).join("")}${from ? `<span class="key"><i class="tri"></i>${esc(from.name)}</span>` : ""}</div>`];
+  const rows = [`<div><span>All villages:</span>${alliances.map(a => `<span class="key"><i class="sq" style="--sw:var(${a.color})"></i>${esc(a.tag)}</span>`).join("")}</div>`];
   if (shown.length) {
     const who = byAlliance() ? `<span class="key"><i class="dot" style="--sw:var(--muted)"></i>${shown.length} players, by alliance colour</span>`
       : shown.map(p => `<span class="key"><i class="dot" style="--sw:${colorVar(p)}"></i>${esc(p.name)}</span>`).join("");
@@ -647,7 +687,7 @@ cv.addEventListener("mousemove", e => {
   if (!u.hit) { tip.hidden = true; cv.classList.remove("over"); return; }
   const t = u.hit.t;
   tip.innerHTML = u.hit.kind === "v"
-    ? `<b>${esc(t.name)}</b> ${xy(t.x, t.y)}${t.cap ? " · capital" : ""}${doneV(t) ? " · scouted" : ""}<br>${esc(t.p.name)} · ${esc(t.p.ally.tag)} · ${fmt(t.pop)} pop${from ? ` · ${dist(from, t).toFixed(1)} fields from ${esc(from.name)}` : ""}`
+    ? `<b>${esc(t.name)}</b> ${xy(t.x, t.y)}${t.cap ? " · capital" : ""}${doneV(t) ? " · scouted" : ""}<br>${esc(t.p.name)} · ${esc(t.p.ally.tag)} · ${fmt(t.pop)} pop`
     : `<b>Oasis</b> ${xy(t.x, t.y)} · ${esc(t.bonus)}${doneO(t) ? " · scouted" : ""}<br>${esc(t.p.name)}${t.vil[0] ? ` · ${esc(t.vil[0].name)}` : ""}`;
   tip.hidden = false; cv.classList.add("over");
   tip.style.left = `${Math.max(4, Math.min(u.cx + 12, cv.clientWidth - tip.offsetWidth - 4))}px`;
@@ -685,9 +725,11 @@ function bind() {
   $("#fit").addEventListener("change", e => { state.fit = e.target.checked; render(); });
   const tree = $("#tree");
   tree.addEventListener("click", e => {
-    if (e.target.closest(".send.off")) { e.preventDefault(); toast("Pick the village to send from, under the map."); $("#from").scrollIntoView({ block: "nearest" }); return; }
-    const all = e.target.closest(".send.all");
-    if (all) { const [i, uid] = all.dataset.all.split(":").map(Number); sendOases(byUid.get(uid), i); return; }
+    const one = e.target.closest("[data-pick]"), all = e.target.closest("[data-pall]");
+    if (one) { const [i, k] = one.dataset.pick.split(":"); pickOne(byKey.get(k), +i); syncPicks(); render(); return; }
+    if (all) { const [i, uid] = all.dataset.pall.split(":").map(Number); pickOases(byUid.get(uid), i); syncPicks(); render(); return; }
+    const oz = e.target.closest("[data-oz]");
+    if (oz) { toggleOases(+oz.dataset.oz); render(); return; }
     const b = e.target.closest("button.tg"); if (!b) return;
     if (b.dataset.a) toggleA(b.dataset.a);
     else if (b.dataset.p) toggleP(+b.dataset.p);
@@ -704,17 +746,20 @@ function bind() {
     setMark(kind, c.dataset[`m${kind}`], c.checked);
   });
   $("#who").addEventListener("input", e => { try { localStorage.setItem(NAME, e.target.value.trim()); } catch { /* not kept */ } });
-  $("#from").addEventListener("change", e => {
-    from = FROM.find(f => f.did === +e.target.value) || null;
-    try { localStorage.setItem(FROM_KEY, from.did); } catch { /* not kept */ }
-    syncFrom(); render();
+  $("#spy").addEventListener("change", e => {
+    spy = e.target.value;
+    try { localStorage.setItem(SPY_KEY, spy); } catch { /* not kept */ }
   });
+  // A userscript manager can run the script after this page's own scripts: take it whenever it says it's here.
+  document.addEventListener("scout-sender", () => { sender = document.documentElement.dataset.scoutSender || ""; syncAuto(); syncPicks(); });
+  $("#go").addEventListener("click", sendPicked);
+  $("#clear").addEventListener("click", () => { picked.clear(); syncPicks(); render(); });
   $("#per").addEventListener("input", e => {
     const i = [...document.querySelectorAll("#per input")].indexOf(e.target), n = Math.floor(+e.target.value);
     if (i < 0 || !(n >= 1)) return;
     per = per.with(i, n);
     try { localStorage.setItem(PER_KEY, JSON.stringify(per)); } catch { /* not kept */ }
-    syncFrom(); render();
+    syncPicks(); render();
   });
   $("#expand").addEventListener("click", () => {
     for (const a of alliances) {
