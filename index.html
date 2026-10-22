@@ -19,7 +19,7 @@
   --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --cols: minmax(0, 1fr) 7rem 4.5rem 5.5rem 4rem;
+  --cols: minmax(0, 1fr) 7rem 4.5rem 5.5rem 4rem 4.5rem;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -101,15 +101,20 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 540px)
 .cap { color: var(--accent); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .art { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: inherit; border-radius: 2px; }
-.ocell { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 6px 0; grid-column: 1 / -1; }
+.ocell { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 6px 0; grid-column: 1 / -2; }
 .res { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px; font-weight: 500; color: var(--res); border: 1px solid var(--res); }
 .res.wood { --res: var(--wood); } .res.clay { --res: var(--clay); } .res.iron { --res: var(--iron); } .res.crop { --res: var(--crop); }
 .tie { font-size: 12px; color: var(--muted); }
+.ck { display: grid; place-items: center; }
+.ck input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.ck input:disabled { cursor: default; }
+.row.done > :not(.ck) { opacity: .4; }
+.row.hd .hck { text-align: center; }
 .empty { padding: 10px 14px 12px calc(8px + var(--ind, 0px)); color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
 .flash { animation: flash 1.4s ease-out; }
 @keyframes flash { from { background: color-mix(in srgb, var(--accent) 30%, transparent); } to { background: transparent; } }
 @media (max-width: 640px) {
-  :root { --cols: minmax(0, 1fr) 4.8rem 3.2rem; }
+  :root { --cols: minmax(0, 1fr) 4.4rem 3rem 3.6rem; }
   .c-tribe, .c-vil { display: none !important; }
   .lvl1 { --ind: 10px; } .lvl2 { --ind: 24px; } .lvl3 { --ind: 38px; }
   .row.v .namecell { flex-wrap: wrap; gap: 0 6px; padding-bottom: 6px; }
@@ -169,7 +174,7 @@ canvas.over { cursor: pointer; }
       </div>
       <label class="check"><input type="checkbox" id="fit" checked> Zoom to expanded players</label>
       <div class="legend" id="legend"></div>
-      <div class="hint">Expand a player to draw their villages. Lines join each oasis to its village. Click a village on the map to open it in the list.</div>
+      <div class="hint">Expand a player to draw their villages. Lines join each oasis to its village. Click a village on the map to open it in the list. Tick a row once you've scouted it; ticks are saved in this browser only.</div>
       <div class="meta" id="meta"></div>
     </aside>
   </main>
@@ -190,6 +195,23 @@ const state = { q: "", tribe: "", sort: "pop", fit: true, openA: new Set(), open
 const slot = new Map();  // uid -> colour slot, kept while the player stays drawn
 let shown = [], lastVis = null, lastView = null, hover = null, hoverKey = "";
 
+// Scouted ticks, kept in this browser by player uid and by village/oasis coordinates so they survive a data refresh.
+const MARKS = "ts32-scout-marks";
+const marks = { p: new Set(), v: new Set(), o: new Set() };
+function loadMarks() {
+  try { const m = JSON.parse(localStorage.getItem(MARKS) || "{}"); for (const k of ["p", "v", "o"]) marks[k] = new Set(m[k] || []); } catch { /* no storage: ticks last for this visit */ }
+}
+function saveMarks() {
+  try { localStorage.setItem(MARKS, JSON.stringify({ p: [...marks.p], v: [...marks.v], o: [...marks.o] })); } catch { /* as above */ }
+}
+const vkey = t => `${t.x}|${t.y}`;
+// A player's tick covers their villages and oases; a village's tick covers its oases.
+const doneP = p => marks.p.has(p.uid);
+const doneV = v => doneP(v.p) || marks.v.has(vkey(v));
+const doneO = o => doneP(o.p) || marks.o.has(vkey(o)) || (!!o.vil[0] && marks.v.has(vkey(o.vil[0])));
+const partP = p => !doneP(p) && (p.vil.some(v => marks.v.has(vkey(v))) || p.oz.some(o => marks.o.has(vkey(o))));
+const partV = v => !doneV(v) && v.oz.some(o => marks.o.has(vkey(o)));
+
 fetch("data.json").then(r => r.json()).then(data => { D = data; init(); })
   .catch(() => { $("#tree").innerHTML = `<div class="empty">Could not load data.json.</div>`; });
 
@@ -208,12 +230,13 @@ function init() {
     r.p.oz.push(r); if (r.vil[0]) r.vil[0].oz.push(r); return r;
   });
   for (const p of players) {
-    p.vil.sort((a, b) => (b.cap - a.cap) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+    p.vil.sort((a, b) => (b.cap - a.cap) || (b.pop - a.pop) || a.name.localeCompare(b.name, undefined, { numeric: true }));
     p.loose = p.oz.filter(o => !o.vil.length);
   }
   for (const t of [...new Set(players.map(p => p.tribe).filter(Boolean))].sort()) $("#tribe").add(new Option(t, t));
   $("#meta").innerHTML = `Snapshot <span class="num">${esc(D.snapshot.slice(0, 16).replace("T", " "))}</span> UTC · `
     + `<a href="${D.server}" target="_blank" rel="noopener">${esc(new URL(D.server).hostname)}</a>`;
+  loadMarks();
   readHash();
   bind();
   render();
@@ -296,22 +319,23 @@ function render() {
     h.push(`<div class="row a${ps.length ? "" : " none"}" style="--ac:var(${a.color})">
       <button class="tg" type="button" data-a="${esc(a.tag)}" aria-expanded="${open}"><span class="car"></span><span class="tag">${esc(a.tag)}</span>${a.name && a.name !== a.tag ? `<span class="aname lbl">${esc(a.name)}</span>` : ""}</button>
       <span class="t c-tribe">${ps.length}<small>players</small></span><span class="n c-vil">${fmt(sum(p => p.vil.length))}<small>villages</small></span>
-      <span class="n">${fmt(sum(p => p.pop))}<small>pop</small></span><span class="n">${fmt(sum(p => p.oz.length))}<small>oases</small></span></div>`);
+      <span class="n">${fmt(sum(p => p.pop))}<small>pop</small></span><span class="n">${fmt(sum(p => p.oz.length))}<small>oases</small></span><span class="n">${ps.filter(doneP).length}<small>scouted</small></span></div>`);
     if (!open) continue;
     h.push(`<div class="kids">`);
     h.push(ps.length
-      ? `<div class="row hd lvl1"><span class="hdname">Player</span><span class="c-tribe">Tribe</span><span class="n c-vil">Villages</span><span class="n">Pop</span><span class="n">Oases</span></div>`
+      ? `<div class="row hd lvl1"><span class="hdname">Player</span><span class="c-tribe">Tribe</span><span class="n c-vil">Villages</span><span class="n">Pop</span><span class="n">Oases</span><span class="hck">Scouted</span></div>`
       : `<div class="empty lvl1">No players match.</div>`);
     for (const p of ps) {
       const po = openP(p, vis);
-      h.push(`<div class="row p lvl1" data-hp="${p.uid}">
+      h.push(`<div class="row p lvl1${doneP(p) ? " done" : ""}" data-hp="${p.uid}">
         <span class="namecell"><button class="tg" type="button" data-p="${p.uid}" aria-expanded="${po}"><span class="car"></span>${po ? `<i class="sw" style="--sw:${colorVar(p)}"></i>` : `<i class="sw off"></i>`}<span class="lbl">${hl(p.name, q)}</span></button><a class="out" href="${D.server}/profile/${p.uid}" target="_blank" rel="noopener" title="Profile in game" aria-label="${esc(p.name)} profile in game">↗</a></span>
-        <span class="t c-tribe">${esc(p.tribe || "")}</span><span class="n c-vil">${p.vil.length}</span><span class="n">${fmt(p.pop)}</span><span class="n">${p.oz.length}</span></div>`);
+        <span class="t c-tribe">${esc(p.tribe || "")}</span><span class="n c-vil">${p.vil.length}</span><span class="n">${fmt(p.pop)}</span><span class="n">${p.oz.length}</span>${ck("p", p.uid, doneP(p), "", partP(p), p.name)}</div>`);
       if (po) h.push(playerKids(p, q));
     }
     h.push(`</div>`);
   }
   $("#tree").innerHTML = h.join("");
+  for (const el of document.querySelectorAll("#tree input[data-part]")) el.indeterminate = true;
   writeHash();
   drawMap();
 }
@@ -320,9 +344,9 @@ function playerKids(p, q) {
   const h = [`<div class="kids">`];
   for (const v of p.vil) {
     const has = v.oz.length > 0, vo = has && state.openV.has(v.i), name = `<span class="car"></span><span class="lbl">${hl(v.name, q)}</span>`;
-    h.push(`<div class="row v lvl2" data-hv="${v.i}">
+    h.push(`<div class="row v lvl2${doneV(v) ? " done" : ""}" data-hv="${v.i}">
       <span class="namecell">${has ? `<button class="tg" type="button" data-v="${v.i}" aria-expanded="${vo}">${name}</button>` : `<span class="tg leaf">${name}</span>`}${mapLink(v.x, v.y)}${v.cap ? `<span class="cap">Capital</span>` : ""}</span>
-      <span class="art c-tribe" title="${esc(v.art)}">${esc(v.art)}</span><span class="c-vil"></span><span class="n">${fmt(v.pop)}</span><span class="n">${v.oz.length || ""}</span></div>`);
+      <span class="art c-tribe" title="${esc(v.art)}">${esc(v.art)}</span><span class="c-vil"></span><span class="n">${fmt(v.pop)}</span><span class="n">${v.oz.length || ""}</span>${ck("v", vkey(v), doneV(v), doneP(p) ? "player" : "", partV(v), v.name)}</div>`);
     if (vo) for (const o of v.oz) h.push(oasisRow(o));
   }
   if (p.loose.length) h.push(`<div class="empty lvl2">Oases not placed with a village: ${p.loose.map(o => `${xy(o.x, o.y)} ${esc(o.bonus)}`).join("; ")}</div>`);
@@ -335,7 +359,13 @@ function oasisRow(o) {
   const others = o.vil.slice(1);
   const tie = others.length
     ? `<span class="tie" title="Same bonus type and in reach of each of these villages, so the game data can't tell which one holds it.">Could also belong to ${others.map(v => `${esc(v.name)} ${xy(v.x, v.y)}`).join(", ")}</span>` : "";
-  return `<div class="row o lvl3" data-ho="${o.i}"><span class="ocell">${mapLink(o.x, o.y)}${bonus(o.bonus)}${tie}</span></div>`;
+  const by = doneP(o.p) ? "player" : o.vil[0] && marks.v.has(vkey(o.vil[0])) ? "village" : "";
+  return `<div class="row o lvl3${doneO(o) ? " done" : ""}" data-ho="${o.i}"><span class="ocell">${mapLink(o.x, o.y)}${bonus(o.bonus)}${tie}</span>${ck("o", vkey(o), doneO(o), by, false, `oasis ${xy(o.x, o.y)}`)}</div>`;
+}
+
+// The scouted tick; a row covered by its player's or village's tick shows it ticked and locked.
+function ck(kind, key, done, by, part, label) {
+  return `<span class="ck"${by ? ` title="Scouted with the ${by}"` : ""}><input type="checkbox" data-m${kind}="${esc(key)}"${done ? " checked" : ""}${by ? " disabled" : ""}${part ? " data-part" : ""} aria-label="Scouted: ${esc(label)}"></span>`;
 }
 
 function syncControls() {
@@ -401,11 +431,11 @@ function drawMap() {
     ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(1, .8 * dpr);
     for (const o of p.oz) {
       const v = o.vil[0];
-      if (v && s >= 3 && Math.abs(px(v.x) - px(o.x)) < 8 * s && Math.abs(py(v.y) - py(o.y)) < 8 * s) { ctx.globalAlpha = .5; ctx.beginPath(); ctx.moveTo(px(v.x), py(v.y)); ctx.lineTo(px(o.x), py(o.y)); ctx.stroke(); }
-      ctx.globalAlpha = .85; diamond(px(o.x), py(o.y), Math.max(r * .6, 2.2 * dpr));
+      if (v && s >= 3 && Math.abs(px(v.x) - px(o.x)) < 8 * s && Math.abs(py(v.y) - py(o.y)) < 8 * s) { ctx.globalAlpha = doneO(o) ? .2 : .5; ctx.beginPath(); ctx.moveTo(px(v.x), py(v.y)); ctx.lineTo(px(o.x), py(o.y)); ctx.stroke(); }
+      ctx.globalAlpha = doneO(o) ? .3 : .85; diamond(px(o.x), py(o.y), Math.max(r * .6, 2.2 * dpr));
     }
-    ctx.globalAlpha = 1;
     for (const v of p.vil) {
+      ctx.globalAlpha = doneV(v) ? .3 : 1;
       const rad = Math.max(r * .7, 2.4 * dpr) * (v.cap ? 1.3 : 1);
       ctx.beginPath(); ctx.arc(px(v.x), py(v.y), rad, 0, 7); ctx.fillStyle = col; ctx.fill();
       ctx.lineWidth = Math.max(1, dpr); ctx.strokeStyle = surf; ctx.stroke();
@@ -425,7 +455,7 @@ function drawLegend() {
   if (shown.length) {
     const who = byAlliance() ? `<span class="key"><i class="dot" style="--sw:var(--muted)"></i>${shown.length} players, by alliance colour</span>`
       : shown.map(p => `<span class="key"><i class="dot" style="--sw:${colorVar(p)}"></i>${esc(p.name)}</span>`).join("");
-    rows.push(`<div><span>Drawn:</span>${who}<span class="key"><i class="ring"></i>capital</span><span class="key"><i class="dia"></i>oasis</span></div>`);
+    rows.push(`<div><span>Drawn:</span>${who}<span class="key"><i class="ring"></i>capital</span><span class="key"><i class="dia"></i>oasis</span><span class="key"><i class="dot" style="--sw:var(--muted);opacity:.35"></i>scouted</span></div>`);
   }
   $("#legend").innerHTML = rows.join("");
 }
@@ -447,8 +477,8 @@ cv.addEventListener("mousemove", e => {
   if (!u.hit) { tip.hidden = true; cv.classList.remove("over"); return; }
   const t = u.hit.t;
   tip.innerHTML = u.hit.kind === "v"
-    ? `<b>${esc(t.name)}</b> ${xy(t.x, t.y)}${t.cap ? " · capital" : ""}<br>${esc(t.p.name)} · ${esc(t.p.ally.tag)} · ${fmt(t.pop)} pop`
-    : `<b>Oasis</b> ${xy(t.x, t.y)} · ${esc(t.bonus)}<br>${esc(t.p.name)}${t.vil[0] ? ` · ${esc(t.vil[0].name)}` : ""}`;
+    ? `<b>${esc(t.name)}</b> ${xy(t.x, t.y)}${t.cap ? " · capital" : ""}${doneV(t) ? " · scouted" : ""}<br>${esc(t.p.name)} · ${esc(t.p.ally.tag)} · ${fmt(t.pop)} pop`
+    : `<b>Oasis</b> ${xy(t.x, t.y)} · ${esc(t.bonus)}${doneO(t) ? " · scouted" : ""}<br>${esc(t.p.name)}${t.vil[0] ? ` · ${esc(t.vil[0].name)}` : ""}`;
   tip.hidden = false; cv.classList.add("over");
   tip.style.left = `${Math.max(4, Math.min(u.cx + 12, cv.clientWidth - tip.offsetWidth - 4))}px`;
   tip.style.top = `${u.cy + 14 + tip.offsetHeight > cv.clientHeight ? u.cy - tip.offsetHeight - 10 : u.cy + 14}px`;
@@ -497,6 +527,14 @@ function bind() {
   tree.addEventListener("focusin", hoverRow);
   tree.addEventListener("mouseleave", unhover);
   tree.addEventListener("focusout", e => { if (!tree.contains(e.relatedTarget)) unhover(); });
+  tree.addEventListener("change", e => {
+    const c = e.target.closest(".ck input"); if (!c) return;
+    const k = c.dataset.mp ? "p" : c.dataset.mv ? "v" : "o", raw = c.dataset[`m${k}`], key = k === "p" ? +raw : raw;
+    c.checked ? marks[k].add(key) : marks[k].delete(key);
+    saveMarks(); render();
+    document.querySelector(`.ck input[data-m${k}="${raw}"]`)?.focus({ preventScroll: true });
+  });
+  window.addEventListener("storage", e => { if (e.key === MARKS) { loadMarks(); render(); } });
   $("#expand").addEventListener("click", () => {
     for (const a of alliances) {
       const ps = lastVis.ps.get(a.tag); if (!ps.length) continue;
@@ -514,9 +552,9 @@ function bind() {
     navigator.clipboard.writeText(location.href).then(() => toast("Link copied. It opens the same players."), () => toast("Copy failed. Use the address bar."));
   });
   $("#csv").addEventListener("click", () => {
-    const rows = [["alliance", "player", "tribe", "village", "x", "y", "pop", "capital", "artifact", "oases"]];
+    const rows = [["alliance", "player", "tribe", "village", "x", "y", "pop", "capital", "artifact", "oases", "scouted"]];
     for (const a of alliances) for (const p of lastVis.ps.get(a.tag)) for (const v of p.vil)
-      rows.push([a.tag, p.name, p.tribe || "", v.name, v.x, v.y, v.pop, v.cap ? "yes" : "", v.art, v.oz.map(o => `${xy(o.x, o.y)} ${o.bonus}`).join("; ")]);
+      rows.push([a.tag, p.name, p.tribe || "", v.name, v.x, v.y, v.pop, v.cap ? "yes" : "", v.art, v.oz.map(o => `${xy(o.x, o.y)} ${o.bonus}`).join("; "), doneV(v) ? "yes" : ""]);
     const cell = v => { v = String(v ?? ""); return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([rows.map(r => r.map(cell).join(",")).join("\n")], { type: "text/csv" }));
