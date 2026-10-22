@@ -9,22 +9,25 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: header, alliance toggles, filter bar, then the table beside a square world map (they stack under 1000px). */
+/* Layout: toolbar, then the alliance → player → village → oasis tree beside a sticky map (stacked under 1000px). */
 :root {
   --bg: #edf0ec; --surface: #fafbf9; --sunk: #e1e6e1; --fg: #19211d; --muted: #59685f; --line: #cdd6cf;
-  --accent: #2a5f47; --accent-fg: #ffffff; --focus: #2a5f47;
-  --c0: #1d5bcc; --c1: #b86200; --c2: #ad1a5c; --home: #19211d; --faint: .16;
+  --accent: #2a5f47; --focus: #2a5f47; --faint: .16; --hover: #e6ebe6;
+  --c0: #1d5bcc; --c1: #b86200; --c2: #ad1a5c;
+  --p0: #0f8b8d; --p1: #7b3fbf; --p2: #2f8a2f; --p3: #37474f; --p4: #a87900; --p5: #d9480f; --p6: #1f6fd1; --p7: #c2185b;
   --wood: #7b4e22; --clay: #b0502b; --iron: #566479; --crop: #9a7a0c;
   --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --cols: minmax(0, 1fr) 7rem 4.5rem 5.5rem 4rem;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #111613; --surface: #181f1b; --sunk: #0c100e; --fg: #e2e9e4; --muted: #92a299; --line: #2a3530;
-    --accent: #7cc39d; --accent-fg: #0f1612; --focus: #7cc39d;
-    --c0: #6f9dff; --c1: #f0a33a; --c2: #f0679f; --home: #e2e9e4; --faint: .32;
+    --accent: #7cc39d; --focus: #7cc39d; --faint: .3; --hover: #202924;
+    --c0: #6f9dff; --c1: #f0a33a; --c2: #f0679f;
+    --p0: #4dd0d1; --p1: #b38bff; --p2: #6fcf6f; --p3: #cfd8dc; --p4: #e0b84a; --p5: #ff8a50; --p6: #6ea8ff; --p7: #f06292;
     --wood: #c9925a; --clay: #e48a64; --iron: #a3b2c7; --crop: #e2c04a;
     color-scheme: dark;
   }
@@ -35,164 +38,139 @@ html, body { margin: 0; }
 body {
   background: var(--bg); color: var(--fg); font: 14px/1.45 var(--body);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 20px 40px;
+  padding-block: 16px 40px;
 }
 .wrap { max-width: 1440px; margin: 0 auto; display: grid; gap: 16px; }
 a { color: inherit; }
 button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.num, .coords, td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 24px; }
-h1 { font: 700 34px/1 var(--display); letter-spacing: .02em; text-transform: uppercase; margin: 0; text-wrap: balance; }
-.meta { color: var(--muted); font-size: 13px; }
-
-.allies { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
-.ally {
-  display: grid; gap: 6px; text-align: left; padding: 12px 14px; cursor: pointer;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
-  border-left: 5px solid var(--ac);
-}
-.ally[aria-pressed="false"] { opacity: .45; border-left-color: var(--line); }
-.ally:hover { border-color: var(--ac); }
-.ally .tag { font: 700 26px/1 var(--display); color: var(--ac); letter-spacing: .02em; }
-.ally .tag small { font: 500 14px var(--body); color: var(--muted); margin-left: 6px; letter-spacing: 0; }
-.ally .stats { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); }
-.ally .stats b { color: var(--fg); font: 500 13px var(--mono); }
-
-.filters {
+.bar {
   display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end;
   background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px;
 }
 .field { display: grid; gap: 3px; }
 .field > span { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-.field input, .field select {
-  height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg);
-}
-.field input[type=search] { width: 200px; }
-.field input.short { width: 76px; }
-.field .pair { display: flex; gap: 4px; align-items: center; }
-.check { display: flex; gap: 6px; align-items: center; height: 32px; font-size: 13px; cursor: pointer; }
-.check input { accent-color: var(--accent); }
-.only-villages, .only-oases { display: contents; }
-.chip {
-  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 6px 0 10px;
-  border-radius: 16px; background: var(--accent); color: var(--accent-fg); font-weight: 500; font-size: 13px;
-}
-.chip button { border: 0; background: transparent; cursor: pointer; padding: 0 4px; font-size: 16px; line-height: 1; }
+.field input, .field select { height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+.field input[type=search] { width: 220px; max-width: 100%; }
 .spacer { flex: 1; }
-.btn {
-  height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg);
-  cursor: pointer; font-size: 13px;
-}
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); cursor: pointer; font-size: 13px; }
 .btn:hover { border-color: var(--accent); }
+.check { display: flex; gap: 6px; align-items: center; font-size: 13px; cursor: pointer; }
+.check input { accent-color: var(--accent); }
 
-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 420px); gap: 16px; align-items: start; }
-@media (max-width: 1000px) { main { grid-template-columns: minmax(0, 1fr); } .mapbox { order: -1; position: static !important; max-width: 520px; } }
-
+main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 540px); gap: 16px; align-items: start; }
+@media (max-width: 1000px) { main { grid-template-columns: minmax(0, 1fr); } .mapbox { order: -1; position: static !important; max-width: 560px; } }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
-.tabs { display: flex; gap: 2px; padding: 8px 8px 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
-.tab {
-  border: 0; background: transparent; padding: 8px 14px 9px; cursor: pointer; border-bottom: 3px solid transparent;
-  font: 600 17px/1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--muted); white-space: nowrap;
-}
-.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
-.tab .num { font: 500 12px var(--mono); margin-left: 4px; }
-.scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: 13px; }
-th, td { padding: 6px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
-td.n, th.n { text-align: right; }
-th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
-th button {
-  border: 0; background: transparent; cursor: pointer; padding: 0; font-size: 11px; text-transform: uppercase;
-  letter-spacing: .08em; color: var(--muted); font-weight: 600;
-}
-th button[data-dir]::after { content: attr(data-dir); margin-left: 4px; color: var(--accent); }
-tbody tr:hover { background: var(--sunk); }
-.pl { border: 0; background: transparent; padding: 0; cursor: pointer; font-weight: 600; text-align: left; }
-.pl:hover { text-decoration: underline; }
-.out { color: var(--muted); text-decoration: none; margin-left: 6px; font-size: 12px; }
-.out:hover { color: var(--accent); }
-.coords a { text-decoration: none; border-bottom: 1px dotted var(--muted); }
-.coords a:hover { color: var(--accent); border-bottom-color: var(--accent); }
-.tagcell { font: 700 14px var(--display); letter-spacing: .03em; color: var(--ac); }
-.muted { color: var(--muted); }
-.cap { color: var(--accent); font-weight: 600; }
-.res { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px; font-weight: 500; margin-right: 4px; color: var(--res); border: 1px solid var(--res); }
-.res.wood { --res: var(--wood); } .res.clay { --res: var(--clay); } .res.iron { --res: var(--iron); } .res.crop { --res: var(--crop); }
-.more { padding: 12px; display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 13px; }
-.empty { padding: 28px 14px; color: var(--muted); }
 
+/* the tree */
+.tree { padding: 4px 0; }
+.row { display: grid; grid-template-columns: var(--cols); align-items: center; gap: 0 10px; padding: 0 14px 0 calc(8px + var(--ind, 0px)); min-height: 34px; }
+.row > * { min-width: 0; }
+.row .n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+.row .t { font-size: 13px; color: var(--muted); }
+.row.p, .row.v, .row.o { border-top: 1px solid var(--line); }
+.row.p:hover, .row.v:hover, .row.o:hover { background: var(--hover); }
+.lvl1 { --ind: 18px; } .lvl2 { --ind: 44px; } .lvl3 { --ind: 70px; }
+.tg { display: flex; align-items: center; gap: 8px; min-width: 0; border: 0; background: transparent; padding: 6px 0; cursor: pointer; text-align: left; }
+.tg .car { flex: none; width: 14px; height: 14px; display: grid; place-items: center; color: var(--muted); }
+.tg .car::before { content: ""; border-style: solid; border-color: transparent transparent transparent currentColor; border-width: 5px 0 5px 7px; }
+.tg[aria-expanded="true"] .car::before { border-color: currentColor transparent transparent; border-width: 7px 5px 0; }
+.tg.leaf { cursor: default; } .tg.leaf .car::before { content: none; }
+.lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row.a { min-height: 58px; }
+.row.a + .row.a, .kids + .row.a { border-top: 1px solid var(--line); }
+.row.a .tag { font: 700 26px/1 var(--display); color: var(--ac); letter-spacing: .02em; }
+.row.a .aname { font-size: 13px; color: var(--muted); margin-left: 2px; }
+.row.a .n, .row.a .t { font-size: 14px; font-weight: 500; color: var(--fg); font-family: var(--mono); }
+.row.a small { display: block; font: 400 10px var(--body); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.row.a.none { opacity: .5; }
+.row.hd { min-height: 26px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; border-top: 1px solid var(--line); }
+.row.hd .n { font-family: var(--body); font-size: 11px; }
+.hdname { padding-left: 22px; }
+.row.p .lbl { font-weight: 600; }
+.sw { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--sw); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--sw); }
+.sw.off { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+.namecell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.out { color: var(--muted); text-decoration: none; font-size: 12px; padding: 0 4px; }
+.out:hover { color: var(--accent); }
+.coords { font-family: var(--mono); font-size: 12px; color: var(--muted); text-decoration: none; border-bottom: 1px dotted var(--muted); white-space: nowrap; }
+.coords:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.cap { color: var(--accent); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.art { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: inherit; border-radius: 2px; }
+.ocell { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 6px 0; grid-column: 1 / -1; }
+.res { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px; font-weight: 500; color: var(--res); border: 1px solid var(--res); }
+.res.wood { --res: var(--wood); } .res.clay { --res: var(--clay); } .res.iron { --res: var(--iron); } .res.crop { --res: var(--crop); }
+.tie { font-size: 12px; color: var(--muted); }
+.empty { padding: 10px 14px 12px calc(8px + var(--ind, 0px)); color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
+.flash { animation: flash 1.4s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--accent) 30%, transparent); } to { background: transparent; } }
+@media (max-width: 640px) {
+  :root { --cols: minmax(0, 1fr) 4.8rem 3.2rem; }
+  .c-tribe, .c-vil { display: none !important; }
+  .lvl1 { --ind: 10px; } .lvl2 { --ind: 24px; } .lvl3 { --ind: 38px; }
+  .row.v .namecell { flex-wrap: wrap; gap: 0 6px; padding-bottom: 6px; }
+  .row.v .tg { flex: 1 0 100%; padding-bottom: 2px; }
+  .row.v .coords { margin-left: 22px; }
+}
+
+/* the map */
 .mapbox { position: sticky; top: 12px; padding: 12px; display: grid; gap: 8px; }
 .mapbox h2 { font: 600 17px/1 var(--display); text-transform: uppercase; letter-spacing: .03em; margin: 0; display: flex; justify-content: space-between; gap: 8px; }
-.mapbox h2 .num { font-size: 13px; color: var(--muted); font-weight: 400; }
-canvas { width: 100%; aspect-ratio: 1; max-width: 100%; display: block; border-radius: 4px; cursor: crosshair; background: var(--sunk); }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
-.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; background: var(--ac); }
-.legend i.sq { border-radius: 1px; }
-.legend i.home { background: transparent; border: 2px solid var(--home); border-radius: 1px; transform: rotate(45deg); width: 8px; height: 8px; }
-.hint { font-size: 12px; color: var(--muted); }
-.toast { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 4px; font-size: 13px; }
-@media (prefers-reduced-motion: no-preference) { .ally, .btn { transition: border-color .15s, opacity .15s; } }
+.mapbox h2 .num { font-size: 13px; color: var(--muted); font-weight: 400; text-transform: none; }
+.mapwrap { position: relative; }
+canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 4px; background: var(--sunk); }
+canvas.over { cursor: pointer; }
+.tip {
+  position: absolute; pointer-events: none; z-index: 2; padding: 6px 9px; border-radius: 4px;
+  background: var(--fg); color: var(--bg); font-size: 12px; line-height: 1.35; white-space: nowrap;
+}
+.tip b { font-weight: 600; }
+.legend { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.legend > div { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.legend .key { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
+.legend .sq { width: 8px; height: 8px; border-radius: 1px; background: var(--sw); }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sw); }
+.legend .dia { width: 7px; height: 7px; background: var(--muted); transform: rotate(45deg); margin: 0 1px; }
+.legend .ring { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--muted); box-shadow: inset 0 0 0 2px var(--surface), inset 0 0 0 6px var(--muted); }
+.hint, .meta { font-size: 12px; color: var(--muted); }
+.meta { border-top: 1px solid var(--line); padding-top: 8px; }
+.toast { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 4px; font-size: 13px; z-index: 5; }
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>TS32 Alliance Scout</h1>
-    <div class="meta" id="meta">Loading…</div>
-  </header>
-
-  <div class="allies" id="allies"></div>
-
-  <div class="filters" id="filters">
+  <div class="bar">
     <label class="field"><span>Search</span><input type="search" id="q" placeholder="Player or village"></label>
     <label class="field"><span>Tribe</span><select id="tribe"><option value="">All tribes</option></select></label>
-    <label class="field"><span id="popLabel">Pop at least</span><input class="short" type="number" id="pop" min="0" step="100" placeholder="0"></label>
-    <div class="field">
-      <span>Distance from</span>
-      <div class="pair">
-        <select id="from">
-          <option value="">Nowhere</option>
-          <option value="home" id="fromHome">Nearest village of …</option>
-          <option value="point">A point (x|y)</option>
-        </select>
-        <input class="short" type="number" id="ox" placeholder="x" aria-label="x" hidden>
-        <input class="short" type="number" id="oy" placeholder="y" aria-label="y" hidden>
-      </div>
-    </div>
-    <label class="field"><span>Within (fields)</span><input class="short" type="number" id="maxd" min="0" step="5" placeholder="any"></label>
-    <span class="only-villages">
-      <label class="check"><input type="checkbox" id="cap"> Capitals only</label>
-      <label class="check"><input type="checkbox" id="art"> With artifact</label>
-    </span>
-    <span class="only-oases">
-      <label class="field"><span>Bonus</span><select id="bonus"><option value="">Any bonus</option></select></label>
-      <label class="check"><input type="checkbox" id="sure"> Village known</label>
-    </span>
-    <span id="playerChip"></span>
+    <label class="field"><span>Sort players by</span>
+      <select id="sort"><option value="pop">Population</option><option value="vil">Villages</option><option value="oz">Oases</option><option value="name">Name</option></select>
+    </label>
     <span class="spacer"></span>
-    <button class="btn" id="reset" type="button">Reset</button>
-    <button class="btn" id="share" type="button">Copy link</button>
-    <button class="btn" id="csv" type="button">Download CSV</button>
+    <div class="btns">
+      <button class="btn" id="expand" type="button">Expand all</button>
+      <button class="btn" id="collapse" type="button">Collapse all</button>
+      <button class="btn" id="share" type="button">Copy link</button>
+      <button class="btn" id="csv" type="button">Download CSV</button>
+    </div>
   </div>
 
   <main>
-    <section class="panel">
-      <div class="tabs" role="tablist" id="tabs">
-        <button class="tab" role="tab" data-tab="players">Players<span class="num" id="n-players"></span></button>
-        <button class="tab" role="tab" data-tab="villages">Villages<span class="num" id="n-villages"></span></button>
-        <button class="tab" role="tab" data-tab="oases">Oases<span class="num" id="n-oases"></span></button>
-      </div>
-      <div class="scroll"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
-      <div id="foot"></div>
-    </section>
-
+    <section class="panel tree" id="tree" aria-label="Alliances, players, villages and oases"><div class="empty">Loading…</div></section>
     <aside class="panel mapbox">
-      <h2>World map <span class="num" id="cursor">(x|y)</span></h2>
-      <canvas id="map" aria-label="World map of the shown villages and oases; click to measure distance from that point"></canvas>
+      <h2>Map <span class="num" id="cursor"></span></h2>
+      <div class="mapwrap">
+        <canvas id="map" aria-label="Map of every scouted village, with the expanded players' villages and oases drawn on top"></canvas>
+        <div class="tip" id="tip" hidden></div>
+      </div>
+      <label class="check"><input type="checkbox" id="fit" checked> Zoom to expanded players</label>
       <div class="legend" id="legend"></div>
-      <div class="hint">Click the map to measure distance from that spot. The map wraps at its edges, and so do distances.</div>
+      <div class="hint">Expand a player to draw their villages. Lines join each oasis to its village. Click a village on the map to open it in the list.</div>
+      <div class="meta" id="meta"></div>
     </aside>
   </main>
 </div>
@@ -202,331 +180,372 @@ canvas { width: 100%; aspect-ratio: 1; max-width: 100%; display: block; border-r
 const $ = s => document.querySelector(s);
 const fmt = n => n.toLocaleString("en-US");
 const fold = s => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-const RES = ["wood", "clay", "iron", "crop"];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const xy = (x, y) => `(${x}|${y})`;
+const SLOTS = 8;  // distinct player colours; past this many drawn players the map colours by alliance
 
-let D, S2, players, villages, oases, colorOf = {}, tribes = [], bonuses = [];
-const state = {
-  tab: "players", allies: null, tribe: "", q: "", player: -1, pop: 0, from: "", ox: 0, oy: 0, maxd: 0,
-  cap: false, art: false, bonus: "", sure: false,
-  sort: { players: ["pop", -1], villages: ["pop", -1], oases: ["dist", 1] }, limit: 300,
-};
+let D, S2, alliances, players, villages, oases;
+const byUid = new Map();
+const state = { q: "", tribe: "", sort: "pop", fit: true, openA: new Set(), openP: new Set(), openV: new Set(), shutA: new Set(), shutP: new Set() };
+const slot = new Map();  // uid -> colour slot, kept while the player stays drawn
+let shown = [], lastVis = null, lastView = null, hover = null, hoverKey = "";
 
-// ── geometry: the map wraps, so does distance ──
-function wrap(d) { const s = D.size; d = ((d % s) + s) % s; return Math.min(d, s - d); }
-function dist(x1, y1, x2, y2) { return Math.hypot(wrap(x1 - x2), wrap(y1 - y2)); }
-function distFrom(x, y) {
-  if (state.from === "point") return dist(x, y, state.ox, state.oy);
-  if (state.from === "home") { let m = Infinity; for (const h of D.home.villages) m = Math.min(m, dist(x, y, h[0], h[1])); return m; }
-  return null;
-}
-
-// ── load ──
-fetch("data.json").then(r => r.json()).then(data => { D = data; init(); }).catch(() => { $("#meta").textContent = "Could not load data.json."; });
+fetch("data.json").then(r => r.json()).then(data => { D = data; init(); })
+  .catch(() => { $("#tree").innerHTML = `<div class="empty">Could not load data.json.</div>`; });
 
 function init() {
   S2 = (D.size - 1) / 2;
-  players = D.players.map((p, i) => ({ i, uid: p.u, name: p.n, ally: p.a, tribe: p.t, key: fold(p.n), vil: [], oz: [], pop: 0 }));
+  alliances = D.alliances.map((a, k) => ({ ...a, color: `--c${k % 3}`, players: [] }));
+  const at = Object.fromEntries(alliances.map(a => [a.tag, a]));
+  players = D.players.map((p, i) => ({ i, uid: p.u, name: p.n, ally: at[p.a], tribe: p.t, key: fold(p.n), vil: [], oz: [], pop: 0 }));
+  for (const p of players) { p.ally.players.push(p); byUid.set(p.uid, p); }
   villages = D.villages.map((v, i) => {
-    const r = { i, p: players[v[0]], name: v[1], x: v[2], y: v[3], pop: v[4], oases: v[5], cap: !!v[6], art: v[7], key: fold(v[1]) };
+    const r = { i, p: players[v[0]], name: v[1], x: v[2], y: v[3], pop: v[4], cap: !!v[6], art: v[7], key: fold(v[1]), oz: [] };
     r.p.vil.push(r); r.p.pop += r.pop; return r;
   });
   oases = D.oases.map((o, i) => {
     const r = { i, p: players[o[0]], x: o[1], y: o[2], bonus: o[3], vil: o[4].map(k => villages[k]), sure: !!o[5] };
-    r.p.oz.push(r); return r;
+    r.p.oz.push(r); if (r.vil[0]) r.vil[0].oz.push(r); return r;
   });
-  for (const p of players) p.capital = p.vil.find(v => v.cap) || null;
-  D.alliances.forEach((a, k) => colorOf[a.tag] = `--c${k % 3}`);
-  tribes = [...new Set(players.map(p => p.tribe).filter(Boolean))].sort();
-  const order = b => b.split(", ").map(x => RES.indexOf(x.split(" ")[0]) * 100 - parseInt(x.split(" ")[1])).join();
-  bonuses = [...new Set(oases.map(o => o.bonus).filter(Boolean))].sort((a, b) => order(a).localeCompare(order(b), undefined, { numeric: true }));
-  for (const t of tribes) $("#tribe").add(new Option(t, t));
-  for (const b of bonuses) $("#bonus").add(new Option(b, b));
-  $("#fromHome").textContent = `Nearest village of ${D.home.name}`;
-  const when = new Date(D.snapshot);
-  $("#meta").innerHTML = `Snapshot <span class="num">${when.toISOString().slice(0, 16).replace("T", " ")}</span> UTC · `
-    + `<a href="${D.server}" target="_blank" rel="noopener">${new URL(D.server).hostname}</a>`;
+  for (const p of players) {
+    p.vil.sort((a, b) => (b.cap - a.cap) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+    p.loose = p.oz.filter(o => !o.vil.length);
+  }
+  for (const t of [...new Set(players.map(p => p.tribe).filter(Boolean))].sort()) $("#tribe").add(new Option(t, t));
+  $("#meta").innerHTML = `Snapshot <span class="num">${esc(D.snapshot.slice(0, 16).replace("T", " "))}</span> UTC · `
+    + `<a href="${D.server}" target="_blank" rel="noopener">${esc(new URL(D.server).hostname)}</a>`;
   readHash();
-  buildAllies();
   bind();
   render();
 }
 
-function buildAllies() {
-  const box = $("#allies"); box.textContent = "";
-  for (const a of D.alliances) {
-    const ps = players.filter(p => p.ally === a.tag);
-    const nv = ps.reduce((s, p) => s + p.vil.length, 0), no = ps.reduce((s, p) => s + p.oz.length, 0), pop = ps.reduce((s, p) => s + p.pop, 0);
-    const b = document.createElement("button");
-    b.className = "ally"; b.type = "button"; b.dataset.tag = a.tag; b.style.setProperty("--ac", `var(${colorOf[a.tag]})`);
-    b.innerHTML = `<span class="tag">${esc(a.tag)}${a.name && a.name !== a.tag ? `<small>${esc(a.name)}</small>` : ""}</span>
-      <span class="stats"><span><b>${ps.length}</b> players</span><span><b>${fmt(nv)}</b> villages</span><span><b>${fmt(no)}</b> oases</span><span><b>${fmt(pop)}</b> pop</span></span>`;
-    b.addEventListener("click", () => { toggleAlly(a.tag); render(); });
-    box.append(b);
-  }
-}
-
-function toggleAlly(tag) {
-  const all = D.alliances.map(a => a.tag);
-  const on = state.allies ? new Set(state.allies) : new Set(all);
-  on.has(tag) ? on.delete(tag) : on.add(tag);
-  state.allies = on.size === all.length || on.size === 0 ? null : [...on];
-}
-function allyOn(tag) { return !state.allies || state.allies.includes(tag); }
-
-// ── filters ──
-function playerPasses(p) {
-  return allyOn(p.ally) && (!state.tribe || p.tribe === state.tribe) && (state.player < 0 || p.i === state.player);
-}
-function filtered() {
-  const q = fold(state.q.trim()), d = state.maxd, hasD = state.from && d > 0;
-  const out = { players: [], villages: [], oases: [] };
-  for (const v of villages) v.dist = distFrom(v.x, v.y);
-  for (const o of oases) o.dist = distFrom(o.x, o.y);
-  for (const p of players) p.dist = state.from ? Math.min(...p.vil.map(v => v.dist)) : null;
-  for (const p of players) {
-    if (!playerPasses(p)) continue;
-    if (q && !p.key.includes(q) && !p.vil.some(v => v.key.includes(q))) continue;
-    if (state.pop && p.pop < state.pop) continue;
-    if (hasD && !(p.dist <= d)) continue;
-    out.players.push(p);
-  }
-  for (const v of villages) {
-    if (!playerPasses(v.p)) continue;
-    if (q && !v.p.key.includes(q) && !v.key.includes(q)) continue;
-    if (state.pop && v.pop < state.pop) continue;
-    if (hasD && !(v.dist <= d)) continue;
-    if (state.cap && !v.cap) continue;
-    if (state.art && !v.art) continue;
-    out.villages.push(v);
-  }
-  for (const o of oases) {
-    if (!playerPasses(o.p)) continue;
-    if (q && !o.p.key.includes(q) && !o.vil.some(v => v.key.includes(q))) continue;
-    if (hasD && !(o.dist <= d)) continue;
-    if (state.bonus && o.bonus !== state.bonus) continue;
-    if (state.sure && !o.sure) continue;
-    out.oases.push(o);
-  }
-  return out;
-}
-
-// ── columns ──
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-const xy = (x, y) => `(${x}|${y})`;
-const mapLink = (x, y) => `<span class="coords"><a href="${D.server}/karte.php?x=${x}&amp;y=${y}" target="_blank" rel="noopener">${xy(x, y)}</a></span>`;
-const playerCell = p => `<button class="pl" type="button" data-p="${p.i}" title="Show only ${esc(p.name)}">${esc(p.name)}</button>`
-  + `<a class="out" href="${D.server}/profile/${p.uid}" target="_blank" rel="noopener" title="Profile in game">↗</a>`;
-const tagCell = p => `<span class="tagcell" style="--ac:var(${colorOf[p.ally]})">${esc(p.ally)}</span>`;
-const distCell = v => v == null ? `<span class="muted">—</span>` : v.toFixed(1);
-const bonusCell = b => b ? b.split(", ").map(x => `<span class="res ${x.split(" ")[0]}">${esc(x)}</span>`).join("") : `<span class="muted">—</span>`;
-const villageName = v => `${v.name} ${xy(v.x, v.y)}`;
-
-const COLS = {
-  players: [
-    { k: "name", l: "Player", get: p => p.name, html: playerCell },
-    { k: "ally", l: "Alliance", get: p => p.ally, html: tagCell },
-    { k: "tribe", l: "Tribe", get: p => p.tribe || "" },
-    { k: "vil", l: "Villages", n: 1, get: p => p.vil.length },
-    { k: "pop", l: "Pop", n: 1, get: p => p.pop, html: p => fmt(p.pop) },
-    { k: "oz", l: "Oases", n: 1, get: p => p.oz.length },
-    { k: "capital", l: "Capital", get: p => p.capital ? xy(p.capital.x, p.capital.y) : "", sortv: p => p.capital ? p.capital.name : "",
-      html: p => p.capital ? `${esc(p.capital.name)} ${mapLink(p.capital.x, p.capital.y)}` : `<span class="muted">—</span>` },
-    { k: "dist", l: "Nearest", n: 1, get: p => p.dist == null ? "" : +p.dist.toFixed(1), html: p => distCell(p.dist) },
-  ],
-  villages: [
-    { k: "name", l: "Village", get: v => v.name, html: v => esc(v.name) + (v.cap ? ` <span class="cap" title="Capital">★</span>` : "") },
-    { k: "coords", l: "Coords", get: v => xy(v.x, v.y), sortv: v => v.x * 1000 + v.y, html: v => mapLink(v.x, v.y) },
-    { k: "player", l: "Player", get: v => v.p.name, html: v => playerCell(v.p) },
-    { k: "ally", l: "Alliance", get: v => v.p.ally, html: v => tagCell(v.p) },
-    { k: "tribe", l: "Tribe", get: v => v.p.tribe || "" },
-    { k: "pop", l: "Pop", n: 1, get: v => v.pop, html: v => fmt(v.pop) },
-    { k: "oases", l: "Oases", n: 1, get: v => v.oases },
-    { k: "cap", l: "Capital", get: v => v.cap ? "yes" : "", html: v => v.cap ? `<span class="cap">Capital</span>` : "" },
-    { k: "art", l: "Artifact", get: v => v.art, html: v => v.art ? esc(v.art) : "" },
-    { k: "dist", l: "Dist.", n: 1, get: v => v.dist == null ? "" : +v.dist.toFixed(1), html: v => distCell(v.dist) },
-  ],
-  oases: [
-    { k: "coords", l: "Coords", get: o => xy(o.x, o.y), sortv: o => o.x * 1000 + o.y, html: o => mapLink(o.x, o.y) },
-    { k: "bonus", l: "Bonus", get: o => o.bonus, html: o => bonusCell(o.bonus) },
-    { k: "player", l: "Player", get: o => o.p.name, html: o => playerCell(o.p) },
-    { k: "ally", l: "Alliance", get: o => o.p.ally, html: o => tagCell(o.p) },
-    { k: "village", l: "Village", get: o => o.vil.map(villageName).join(" / "), sortv: o => o.vil[0] ? o.vil[0].name : "~",
-      html: o => !o.vil.length ? `<span class="muted">unknown</span>`
-        : o.sure ? `${esc(o.vil[0].name)} ${mapLink(o.vil[0].x, o.vil[0].y)}`
-        : `<span title="${esc(o.vil.map(villageName).join("\n"))}">${esc(o.vil[0].name)} <span class="muted">or ${o.vil.length - 1} other${o.vil.length > 2 ? "s" : ""}</span></span>` },
-    { k: "dist", l: "Dist.", n: 1, get: o => o.dist == null ? "" : +o.dist.toFixed(1), html: o => distCell(o.dist) },
-  ],
+// ── what the filters let through, and what is open ──
+const SORTS = {
+  pop: (a, b) => b.pop - a.pop,
+  vil: (a, b) => b.vil.length - a.vil.length || b.pop - a.pop,
+  oz: (a, b) => b.oz.length - a.oz.length || b.pop - a.pop,
+  name: (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
 };
+// A search opens the alliances it hits, and the players whose villages it hits.
+function visible() {
+  const q = fold(state.q.trim()), ps = new Map(), autoA = new Set(), autoP = new Set();
+  for (const a of alliances) {
+    const keep = [];
+    for (const p of a.players) {
+      if (state.tribe && p.tribe !== state.tribe) continue;
+      if (q) {
+        const vilHit = p.vil.some(v => v.key.includes(q));
+        if (!p.key.includes(q) && !vilHit) continue;
+        autoA.add(a.tag);
+        if (vilHit) autoP.add(p.uid);
+      }
+      keep.push(p);
+    }
+    ps.set(a.tag, keep.sort(SORTS[state.sort]));
+  }
+  return { q, ps, autoA, autoP };
+}
+const openA = (a, vis) => !state.shutA.has(a.tag) && (state.openA.has(a.tag) || vis.autoA.has(a.tag));
+const openP = (p, vis) => !state.shutP.has(p.uid) && (state.openP.has(p.uid) || vis.autoP.has(p.uid));
 
-function sorted(rows) {
-  const [k, dir] = state.sort[state.tab];
-  const col = COLS[state.tab].find(c => c.k === k) || COLS[state.tab][0];
-  const val = col.sortv || col.get;
-  return rows.slice().sort((a, b) => {
-    let x = val(a), y = val(b);
-    const ex = x === "" || x == null, ey = y === "" || y == null;
-    if (ex || ey) return ex === ey ? 0 : ex ? 1 : -1;
-    return (typeof x === "number" ? x - y : String(x).localeCompare(String(y), undefined, { sensitivity: "base", numeric: true })) * dir;
-  });
+function toggleA(tag) {
+  const a = alliances.find(a => a.tag === tag), vis = visible();
+  if (openA(a, vis)) { state.openA.delete(tag); if (vis.autoA.has(tag)) state.shutA.add(tag); }
+  else { state.openA.add(tag); state.shutA.delete(tag); }
+}
+function toggleP(uid) {
+  const p = byUid.get(uid), vis = visible();
+  if (openP(p, vis)) { state.openP.delete(uid); if (vis.autoP.has(uid)) state.shutP.add(uid); }
+  else { state.openP.add(uid); state.shutP.delete(uid); }
+}
+// Open a player picked on the map, clearing any filter that hides them.
+function reveal(p) {
+  state.openA.add(p.ally.tag); state.shutA.delete(p.ally.tag);
+  state.openP.add(p.uid); state.shutP.delete(p.uid);
+  if (state.tribe && p.tribe !== state.tribe) state.tribe = "";
+  const q = fold(state.q.trim());
+  if (q && !p.key.includes(q) && !p.vil.some(v => v.key.includes(q))) state.q = "";
 }
 
-// ── render ──
-let last = null;
+// ── colours for the drawn players ──
+function assignSlots(drawn) {
+  const keep = new Set(drawn.map(p => p.uid));
+  for (const uid of [...slot.keys()]) if (!keep.has(uid)) slot.delete(uid);
+  const used = new Set(slot.values());
+  for (const p of drawn) if (!slot.has(p.uid)) { let k = 0; while (used.has(k)) k++; slot.set(p.uid, k); used.add(k); }
+}
+const byAlliance = () => shown.length > SLOTS;
+const colorVar = p => byAlliance() ? `var(${p.ally.color})` : `var(--p${slot.get(p.uid) % SLOTS})`;
+
+// ── the tree ──
+function hl(text, q) {
+  const f = fold(text), i = q ? f.indexOf(q) : -1;
+  if (i < 0 || f.length !== text.length) return esc(text);
+  return esc(text.slice(0, i)) + `<mark>${esc(text.slice(i, i + q.length))}</mark>` + esc(text.slice(i + q.length));
+}
+const mapLink = (x, y) => `<a class="coords" href="${D.server}/karte.php?x=${x}&amp;y=${y}" target="_blank" rel="noopener" title="Open on the game map">${xy(x, y)}</a>`;
+const bonus = b => b ? b.split(", ").map(x => `<span class="res ${x.split(" ")[0]}">${esc(x)}</span>`).join("") : `<span class="tie">bonus not read</span>`;
+
 function render() {
   syncControls();
-  const f = filtered(); last = f;
-  for (const t of ["players", "villages", "oases"]) $(`#n-${t}`).textContent = fmt(f[t].length);
-  document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === state.tab)));
-  document.querySelectorAll(".ally").forEach(b => b.setAttribute("aria-pressed", String(allyOn(b.dataset.tag))));
-  $(".only-villages").hidden = state.tab !== "villages";
-  $(".only-oases").hidden = state.tab !== "oases";
-  $("#popLabel").textContent = state.tab === "players" ? "Player pop at least" : "Village pop at least";
-  const cols = COLS[state.tab], [sk, sd] = state.sort[state.tab];
-  $("#thead").innerHTML = "<tr>" + cols.map(c => `<th class="${c.n ? "n" : ""}"><button type="button" data-k="${c.k}"${c.k === sk ? ` data-dir="${sd > 0 ? "▲" : "▼"}"` : ""}>${c.l}</button></th>`).join("") + "</tr>";
-  const rows = sorted(f[state.tab]);
-  const shown = rows.slice(0, state.limit);
-  $("#tbody").innerHTML = shown.map(r => "<tr>" + cols.map(c => `<td class="${c.n ? "n" : ""}">${c.html ? c.html(r) : esc(c.get(r))}</td>`).join("") + "</tr>").join("");
-  $("#foot").innerHTML = !rows.length ? `<div class="empty">Nothing matches these filters.</div>`
-    : rows.length > shown.length ? `<div class="more">Showing ${fmt(shown.length)} of ${fmt(rows.length)}. <button class="btn" type="button" id="all">Show all</button></div>` : "";
-  const chip = state.player >= 0 ? players[state.player] : null;
-  $("#playerChip").innerHTML = chip ? `<span class="chip">${esc(chip.name)}<button type="button" id="unplayer" aria-label="Show all players">×</button></span>` : "";
+  const vis = lastVis = visible(), q = vis.q, h = [];
+  shown = alliances.flatMap(a => openA(a, vis) ? vis.ps.get(a.tag).filter(p => openP(p, vis)) : []);
+  assignSlots(shown);
+  for (const a of alliances) {
+    const ps = vis.ps.get(a.tag), open = openA(a, vis), sum = f => ps.reduce((s, p) => s + f(p), 0);
+    h.push(`<div class="row a${ps.length ? "" : " none"}" style="--ac:var(${a.color})">
+      <button class="tg" type="button" data-a="${esc(a.tag)}" aria-expanded="${open}"><span class="car"></span><span class="tag">${esc(a.tag)}</span>${a.name && a.name !== a.tag ? `<span class="aname lbl">${esc(a.name)}</span>` : ""}</button>
+      <span class="t c-tribe">${ps.length}<small>players</small></span><span class="n c-vil">${fmt(sum(p => p.vil.length))}<small>villages</small></span>
+      <span class="n">${fmt(sum(p => p.pop))}<small>pop</small></span><span class="n">${fmt(sum(p => p.oz.length))}<small>oases</small></span></div>`);
+    if (!open) continue;
+    h.push(`<div class="kids">`);
+    h.push(ps.length
+      ? `<div class="row hd lvl1"><span class="hdname">Player</span><span class="c-tribe">Tribe</span><span class="n c-vil">Villages</span><span class="n">Pop</span><span class="n">Oases</span></div>`
+      : `<div class="empty lvl1">No players match.</div>`);
+    for (const p of ps) {
+      const po = openP(p, vis);
+      h.push(`<div class="row p lvl1" data-hp="${p.uid}">
+        <span class="namecell"><button class="tg" type="button" data-p="${p.uid}" aria-expanded="${po}"><span class="car"></span>${po ? `<i class="sw" style="--sw:${colorVar(p)}"></i>` : `<i class="sw off"></i>`}<span class="lbl">${hl(p.name, q)}</span></button><a class="out" href="${D.server}/profile/${p.uid}" target="_blank" rel="noopener" title="Profile in game" aria-label="${esc(p.name)} profile in game">↗</a></span>
+        <span class="t c-tribe">${esc(p.tribe || "")}</span><span class="n c-vil">${p.vil.length}</span><span class="n">${fmt(p.pop)}</span><span class="n">${p.oz.length}</span></div>`);
+      if (po) h.push(playerKids(p, q));
+    }
+    h.push(`</div>`);
+  }
+  $("#tree").innerHTML = h.join("");
   writeHash();
-  drawMap(f);
+  drawMap();
+}
+
+function playerKids(p, q) {
+  const h = [`<div class="kids">`];
+  for (const v of p.vil) {
+    const has = v.oz.length > 0, vo = has && state.openV.has(v.i), name = `<span class="car"></span><span class="lbl">${hl(v.name, q)}</span>`;
+    h.push(`<div class="row v lvl2" data-hv="${v.i}">
+      <span class="namecell">${has ? `<button class="tg" type="button" data-v="${v.i}" aria-expanded="${vo}">${name}</button>` : `<span class="tg leaf">${name}</span>`}${mapLink(v.x, v.y)}${v.cap ? `<span class="cap">Capital</span>` : ""}</span>
+      <span class="art c-tribe" title="${esc(v.art)}">${esc(v.art)}</span><span class="c-vil"></span><span class="n">${fmt(v.pop)}</span><span class="n">${v.oz.length || ""}</span></div>`);
+    if (vo) for (const o of v.oz) h.push(oasisRow(o));
+  }
+  if (p.loose.length) h.push(`<div class="empty lvl2">Oases not placed with a village: ${p.loose.map(o => `${xy(o.x, o.y)} ${esc(o.bonus)}`).join("; ")}</div>`);
+  h.push(`</div>`);
+  return h.join("");
+}
+
+// An oasis sits under the village the matching gave it; ties name the other villages it could belong to.
+function oasisRow(o) {
+  const others = o.vil.slice(1);
+  const tie = others.length
+    ? `<span class="tie" title="Same bonus type and in reach of each of these villages, so the game data can't tell which one holds it.">Could also belong to ${others.map(v => `${esc(v.name)} ${xy(v.x, v.y)}`).join(", ")}</span>` : "";
+  return `<div class="row o lvl3" data-ho="${o.i}"><span class="ocell">${mapLink(o.x, o.y)}${bonus(o.bonus)}${tie}</span></div>`;
 }
 
 function syncControls() {
-  $("#q").value = state.q; $("#tribe").value = state.tribe; $("#pop").value = state.pop || "";
-  $("#from").value = state.from; $("#ox").hidden = $("#oy").hidden = state.from !== "point";
-  $("#ox").value = state.from === "point" ? state.ox : ""; $("#oy").value = state.from === "point" ? state.oy : "";
-  $("#maxd").value = state.maxd || ""; $("#cap").checked = state.cap; $("#art").checked = state.art;
-  $("#bonus").value = state.bonus; $("#sure").checked = state.sure;
+  $("#q").value = state.q; $("#tribe").value = state.tribe; $("#sort").value = state.sort; $("#fit").checked = state.fit;
 }
 
-// ── map ──
+// ── the map ──
 const cv = $("#map"), ctx = cv.getContext("2d");
-function token(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-function drawMap(f) {
-  const css = cv.clientWidth || 400, dpr = window.devicePixelRatio || 1, W = Math.round(css * dpr);
+const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+// The game map wraps at its edges, so the view may run across the seam.
+const mod = n => ((n % D.size) + D.size) % D.size;
+const wrapc = n => mod(n + S2) - S2;
+// The shortest stretch of one wrapping axis that holds every value: it starts just past the widest empty gap.
+function cover(vals) {
+  const u = [...new Set(vals)].sort((a, b) => a - b);
+  let gap = u[0] + D.size - u[u.length - 1], start = u[0];
+  for (let i = 1; i < u.length; i++) if (u[i] - u[i - 1] > gap) { gap = u[i] - u[i - 1]; start = u[i]; }
+  return { mid: start + (D.size - gap) / 2, len: D.size - gap + 1 };
+}
+function view() {
+  const pts = state.fit ? shown.flatMap(p => [...p.vil, ...p.oz]) : [];
+  if (!pts.length) return { x0: -S2, y1: S2, span: D.size };
+  const cx = cover(pts.map(t => t.x)), cy = cover(pts.map(t => t.y));
+  const span = Math.min(D.size, Math.max(30, cx.len, cy.len) + 10);
+  return { x0: Math.round(cx.mid - span / 2), y1: Math.round(cy.mid + span / 2), span };
+}
+function diamond(x, y, q) { ctx.beginPath(); ctx.moveTo(x, y - q); ctx.lineTo(x + q, y); ctx.lineTo(x, y + q); ctx.lineTo(x - q, y); ctx.closePath(); ctx.fill(); }
+function drawMap() {
+  const W = Math.round((cv.clientWidth || 400) * (window.devicePixelRatio || 1)), dpr = window.devicePixelRatio || 1;
   if (cv.width !== W) { cv.width = W; cv.height = W; }
-  const s = W / D.size, px = x => (x + S2 + .5) * s, py = y => (S2 - y + .5) * s;
-  ctx.fillStyle = token("--sunk"); ctx.fillRect(0, 0, W, W);
-  ctx.strokeStyle = token("--line"); ctx.lineWidth = Math.max(1, dpr * .5);
-  for (let g = -S2 + (S2 % 50); g <= S2; g += 50) {
-    ctx.globalAlpha = g === 0 ? 1 : .55;
-    ctx.beginPath(); ctx.moveTo(px(g), 0); ctx.lineTo(px(g), W); ctx.moveTo(0, py(g)); ctx.lineTo(W, py(g)); ctx.stroke();
+  const vw = lastView = view(), s = W / vw.span;
+  const px = x => (mod(x - vw.x0) + .5) * s, py = y => (mod(vw.y1 - y) + .5) * s;
+  Object.assign(vw, { s, px, py, dpr });
+  ctx.globalAlpha = 1; ctx.fillStyle = token("--sunk"); ctx.fillRect(0, 0, W, W);
+  // grid, labelled along the top and left edges
+  const step = [1, 2, 5, 10, 25, 50, 100].find(k => vw.span / k <= 9) || 100;
+  ctx.font = `${10 * dpr}px "IBM Plex Mono", monospace`; ctx.lineWidth = Math.max(1, dpr * .5);
+  ctx.strokeStyle = token("--line"); ctx.fillStyle = token("--muted");
+  for (let i = 0; i < vw.span; i++) {
+    const gx = wrapc(vw.x0 + i), gy = wrapc(vw.y1 - i);
+    if (gx % step === 0 && gx !== -S2) {
+      ctx.globalAlpha = gx ? .6 : 1; ctx.beginPath(); ctx.moveTo(px(gx), 0); ctx.lineTo(px(gx), W); ctx.stroke();
+      ctx.globalAlpha = .9; ctx.fillText(gx, px(gx) + 3 * dpr, 11 * dpr);
+    }
+    if (gy % step === 0 && gy !== -S2) {
+      ctx.globalAlpha = gy ? .6 : 1; ctx.beginPath(); ctx.moveTo(0, py(gy)); ctx.lineTo(W, py(gy)); ctx.stroke();
+      ctx.globalAlpha = .9; ctx.fillText(gy, 3 * dpr, py(gy) - 3 * dpr);
+    }
   }
-  const col = {}; for (const a of D.alliances) col[a.tag] = token(colorOf[a.tag]);
-  const r = Math.max(1.1 * dpr, s * .85);
-  // every scouted village, faint
-  ctx.globalAlpha = +token("--faint") || .2;
-  for (const v of villages) { ctx.fillStyle = col[v.p.ally]; ctx.fillRect(px(v.x) - r / 2, py(v.y) - r / 2, r, r); }
+  // every scouted village as a square in its alliance colour, faint once players are drawn
+  const r = Math.min(9 * dpr, Math.max(1.2 * dpr, s * .8)), faint = +token("--faint") || .2;
+  const ac = Object.fromEntries(alliances.map(a => [a.tag, token(a.color)]));
+  const anyOpen = alliances.some(a => openA(a, lastVis));
+  for (const v of villages) {
+    const on = openA(v.p.ally, lastVis);
+    ctx.globalAlpha = shown.length ? (on ? faint * 1.6 : faint * .7) : anyOpen ? (on ? .9 : .2) : .75;
+    ctx.fillStyle = ac[v.p.ally.tag]; ctx.fillRect(px(v.x) - r / 2, py(v.y) - r / 2, r, r);
+  }
+  // drawn players: each oasis joined to its village, then the villages on top
+  const surf = token("--surface");
+  for (const p of shown) {
+    const col = byAlliance() ? ac[p.ally.tag] : token(`--p${slot.get(p.uid) % SLOTS}`);
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(1, .8 * dpr);
+    for (const o of p.oz) {
+      const v = o.vil[0];
+      if (v && s >= 3 && Math.abs(px(v.x) - px(o.x)) < 8 * s && Math.abs(py(v.y) - py(o.y)) < 8 * s) { ctx.globalAlpha = .5; ctx.beginPath(); ctx.moveTo(px(v.x), py(v.y)); ctx.lineTo(px(o.x), py(o.y)); ctx.stroke(); }
+      ctx.globalAlpha = .85; diamond(px(o.x), py(o.y), Math.max(r * .6, 2.2 * dpr));
+    }
+    ctx.globalAlpha = 1;
+    for (const v of p.vil) {
+      const rad = Math.max(r * .7, 2.4 * dpr) * (v.cap ? 1.3 : 1);
+      ctx.beginPath(); ctx.arc(px(v.x), py(v.y), rad, 0, 7); ctx.fillStyle = col; ctx.fill();
+      ctx.lineWidth = Math.max(1, dpr); ctx.strokeStyle = surf; ctx.stroke();
+      if (v.cap) { ctx.beginPath(); ctx.arc(px(v.x), py(v.y), rad + 2.5 * dpr, 0, 7); ctx.strokeStyle = col; ctx.lineWidth = 1.5 * dpr; ctx.stroke(); }
+    }
+  }
+  // ring whatever the pointer is on in the list
+  if (hover) {
+    ctx.globalAlpha = 1; ctx.strokeStyle = token("--fg"); ctx.lineWidth = 1.5 * dpr;
+    for (const t of hover) { ctx.beginPath(); ctx.arc(px(t.x), py(t.y), Math.max(r * .7, 2.4 * dpr) + 3.5 * dpr, 0, 7); ctx.stroke(); }
+  }
   ctx.globalAlpha = 1;
-  if (state.tab === "oases") {
-    const q = r * 1.1;
-    for (const o of f.oases) { ctx.fillStyle = col[o.p.ally]; ctx.fillRect(px(o.x) - q / 2, py(o.y) - q / 2, q, q); }
-  } else {
-    const list = state.tab === "villages" ? f.villages : f.players.flatMap(p => p.vil);
-    for (const v of list) { ctx.fillStyle = col[v.p.ally]; ctx.beginPath(); ctx.arc(px(v.x), py(v.y), r * .8, 0, 7); ctx.fill(); }
-  }
-  const fg = token("--home");
-  if (state.from === "home") {
-    ctx.strokeStyle = fg; ctx.lineWidth = 1.4 * dpr; const h = 2.6 * dpr;
-    for (const v of D.home.villages) { const x = px(v[0]), y = py(v[1]); ctx.beginPath(); ctx.moveTo(x, y - h); ctx.lineTo(x + h, y); ctx.lineTo(x, y + h); ctx.lineTo(x - h, y); ctx.closePath(); ctx.stroke(); }
-  }
-  if (state.from === "point") {
-    const x = px(state.ox), y = py(state.oy), h = 6 * dpr;
-    ctx.strokeStyle = fg; ctx.lineWidth = 1.5 * dpr;
-    ctx.beginPath(); ctx.moveTo(x - h, y); ctx.lineTo(x + h, y); ctx.moveTo(x, y - h); ctx.lineTo(x, y + h); ctx.stroke();
-    if (state.maxd > 0) { ctx.globalAlpha = .7; ctx.setLineDash([4 * dpr, 4 * dpr]); ctx.beginPath(); ctx.arc(x, y, state.maxd * s, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
-  }
-  const legend = D.alliances.filter(a => allyOn(a.tag)).map(a => `<span><i class="${state.tab === "oases" ? "sq" : ""}" style="--ac:var(${colorOf[a.tag]})"></i>${esc(a.tag)}</span>`);
-  if (state.from === "home") legend.push(`<span><i class="home"></i>${esc(D.home.name)}</span>`);
-  $("#legend").innerHTML = legend.join("") + `<span>${state.tab === "oases" ? "squares: oases" : "dots: villages"}, faint: all scouted villages</span>`;
+  drawLegend();
 }
-function cellAt(e) {
-  const b = cv.getBoundingClientRect(), s = b.width / D.size;
-  return [Math.floor((e.clientX - b.left) / s) - S2, S2 - Math.floor((e.clientY - b.top) / s)];
+function drawLegend() {
+  const rows = [`<div><span>All villages:</span>${alliances.map(a => `<span class="key"><i class="sq" style="--sw:var(${a.color})"></i>${esc(a.tag)}</span>`).join("")}</div>`];
+  if (shown.length) {
+    const who = byAlliance() ? `<span class="key"><i class="dot" style="--sw:var(--muted)"></i>${shown.length} players, by alliance colour</span>`
+      : shown.map(p => `<span class="key"><i class="dot" style="--sw:${colorVar(p)}"></i>${esc(p.name)}</span>`).join("");
+    rows.push(`<div><span>Drawn:</span>${who}<span class="key"><i class="ring"></i>capital</span><span class="key"><i class="dia"></i>oasis</span></div>`);
+  }
+  $("#legend").innerHTML = rows.join("");
 }
-cv.addEventListener("mousemove", e => { const [x, y] = cellAt(e); $("#cursor").textContent = xy(x, y); });
-cv.addEventListener("mouseleave", () => { $("#cursor").textContent = "(x|y)"; });
-cv.addEventListener("click", e => { const [x, y] = cellAt(e); Object.assign(state, { from: "point", ox: x, oy: y }); if (!state.maxd) state.maxd = 20; state.limit = 300; render(); });
-window.addEventListener("resize", () => last && drawMap(last));
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => last && drawMap(last));
+
+// map pointer: name what is under it, open it in the list on click
+function under(e) {
+  if (!lastView) return null;
+  const b = cv.getBoundingClientRect(), k = cv.width / b.width, vw = lastView;
+  const mx = (e.clientX - b.left) * k, my = (e.clientY - b.top) * k;
+  let hit = null, bd = Math.max(8 * vw.dpr, vw.s * .9) ** 2;
+  const near = (t, kind) => { const d = (vw.px(t.x) - mx) ** 2 + (vw.py(t.y) - my) ** 2; if (d < bd) { bd = d; hit = { t, kind }; } };
+  for (const p of shown) for (const o of p.oz) near(o, "o");
+  for (const v of villages) near(v, "v");
+  return { hit, fx: wrapc(vw.x0 + Math.floor(mx / vw.s)), fy: wrapc(vw.y1 - Math.floor(my / vw.s)), cx: mx / k, cy: my / k };
+}
+cv.addEventListener("mousemove", e => {
+  const u = under(e), tip = $("#tip"); if (!u) return;
+  $("#cursor").textContent = xy(u.fx, u.fy);
+  if (!u.hit) { tip.hidden = true; cv.classList.remove("over"); return; }
+  const t = u.hit.t;
+  tip.innerHTML = u.hit.kind === "v"
+    ? `<b>${esc(t.name)}</b> ${xy(t.x, t.y)}${t.cap ? " · capital" : ""}<br>${esc(t.p.name)} · ${esc(t.p.ally.tag)} · ${fmt(t.pop)} pop`
+    : `<b>Oasis</b> ${xy(t.x, t.y)} · ${esc(t.bonus)}<br>${esc(t.p.name)}${t.vil[0] ? ` · ${esc(t.vil[0].name)}` : ""}`;
+  tip.hidden = false; cv.classList.add("over");
+  tip.style.left = `${Math.max(4, Math.min(u.cx + 12, cv.clientWidth - tip.offsetWidth - 4))}px`;
+  tip.style.top = `${u.cy + 14 + tip.offsetHeight > cv.clientHeight ? u.cy - tip.offsetHeight - 10 : u.cy + 14}px`;
+});
+cv.addEventListener("mouseleave", () => { $("#cursor").textContent = ""; $("#tip").hidden = true; cv.classList.remove("over"); });
+cv.addEventListener("click", e => {
+  const u = under(e); if (!u || !u.hit) return;
+  const t = u.hit.t, v = u.hit.kind === "v" ? t : t.vil[0];
+  reveal(t.p);
+  if (u.hit.kind === "o" && v) state.openV.add(v.i);
+  render();
+  const row = document.querySelector(v ? `[data-hv="${v.i}"]` : `[data-hp="${t.p.uid}"]`);
+  if (!row) return;
+  row.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  row.classList.add("flash"); setTimeout(() => row.classList.remove("flash"), 1500);
+});
+window.addEventListener("resize", () => D && drawMap());
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => D && drawMap());
 
 // ── events ──
+function hoverRow(e) {
+  const r = e.target.closest("[data-hp],[data-hv],[data-ho]");
+  const key = !r ? "" : r.dataset.hp ? `p${r.dataset.hp}` : r.dataset.hv ? `v${r.dataset.hv}` : `o${r.dataset.ho}`;
+  if (key === hoverKey) return;
+  hoverKey = key;
+  hover = !r ? null : r.dataset.hp ? byUid.get(+r.dataset.hp).vil : r.dataset.hv ? [villages[+r.dataset.hv]] : [oases[+r.dataset.ho]];
+  drawMap();
+}
+function unhover() { if (hoverKey) { hoverKey = ""; hover = null; drawMap(); } }
 function bind() {
-  const on = (sel, ev, fn) => $(sel).addEventListener(ev, e => { fn(e); state.limit = 300; render(); });
-  on("#q", "input", e => state.q = e.target.value);
-  on("#tribe", "change", e => state.tribe = e.target.value);
-  on("#pop", "input", e => state.pop = Math.max(0, +e.target.value || 0));
-  on("#from", "change", e => { state.from = e.target.value; if (state.from === "point" && !state.ox && !state.oy && D.home.villages[0]) { state.ox = D.home.villages[0][0]; state.oy = D.home.villages[0][1]; } });
-  on("#ox", "input", e => state.ox = Math.round(+e.target.value || 0));
-  on("#oy", "input", e => state.oy = Math.round(+e.target.value || 0));
-  on("#maxd", "input", e => state.maxd = Math.max(0, +e.target.value || 0));
-  on("#cap", "change", e => state.cap = e.target.checked);
-  on("#art", "change", e => state.art = e.target.checked);
-  on("#bonus", "change", e => state.bonus = e.target.value);
-  on("#sure", "change", e => state.sure = e.target.checked);
-  $("#tabs").addEventListener("click", e => { const b = e.target.closest(".tab"); if (b) { state.tab = b.dataset.tab; state.limit = 300; render(); } });
-  $("#thead").addEventListener("click", e => {
-    const b = e.target.closest("button[data-k]"); if (!b) return;
-    const col = COLS[state.tab].find(c => c.k === b.dataset.k), cur = state.sort[state.tab];
-    state.sort[state.tab] = cur[0] === col.k ? [col.k, -cur[1]] : [col.k, col.n && col.k !== "dist" ? -1 : 1];
+  $("#q").addEventListener("input", e => { state.q = e.target.value; state.shutA.clear(); state.shutP.clear(); render(); });
+  $("#tribe").addEventListener("change", e => { state.tribe = e.target.value; render(); });
+  $("#sort").addEventListener("change", e => { state.sort = e.target.value; render(); });
+  $("#fit").addEventListener("change", e => { state.fit = e.target.checked; render(); });
+  const tree = $("#tree");
+  tree.addEventListener("click", e => {
+    const b = e.target.closest("button.tg"); if (!b) return;
+    if (b.dataset.a) toggleA(b.dataset.a);
+    else if (b.dataset.p) toggleP(+b.dataset.p);
+    else if (b.dataset.v) { const i = +b.dataset.v; state.openV.has(i) ? state.openV.delete(i) : state.openV.add(i); }
+    const focus = Object.entries(b.dataset).map(([k, v]) => `button.tg[data-${k}="${v}"]`)[0];
+    render();
+    if (focus) document.querySelector(focus)?.focus({ preventScroll: true });
+  });
+  tree.addEventListener("mouseover", hoverRow);
+  tree.addEventListener("focusin", hoverRow);
+  tree.addEventListener("mouseleave", unhover);
+  tree.addEventListener("focusout", e => { if (!tree.contains(e.relatedTarget)) unhover(); });
+  $("#expand").addEventListener("click", () => {
+    for (const a of alliances) {
+      const ps = lastVis.ps.get(a.tag); if (!ps.length) continue;
+      state.openA.add(a.tag); state.shutA.delete(a.tag);
+      for (const p of ps) { state.openP.add(p.uid); state.shutP.delete(p.uid); }
+    }
     render();
   });
-  document.addEventListener("click", e => {
-    const p = e.target.closest(".pl"); if (p) { state.player = +p.dataset.p; state.limit = 300; render(); return; }
-    if (e.target.id === "unplayer") { state.player = -1; render(); }
-    if (e.target.id === "all") { state.limit = Infinity; render(); }
+  $("#collapse").addEventListener("click", () => {
+    state.openA.clear(); state.openP.clear(); state.openV.clear(); state.shutP.clear();
+    for (const a of alliances) state.shutA.add(a.tag);
+    render();
   });
-  $("#reset").addEventListener("click", () => { location.hash = ""; Object.assign(state, defaults()); render(); });
   $("#share").addEventListener("click", () => {
-    navigator.clipboard.writeText(location.href).then(() => toast("Link copied, with these filters."), () => toast("Copy failed. Use the address bar."));
+    navigator.clipboard.writeText(location.href).then(() => toast("Link copied. It opens the same players."), () => toast("Copy failed. Use the address bar."));
   });
   $("#csv").addEventListener("click", () => {
-    const cols = COLS[state.tab], rows = sorted(last[state.tab]);
+    const rows = [["alliance", "player", "tribe", "village", "x", "y", "pop", "capital", "artifact", "oases"]];
+    for (const a of alliances) for (const p of lastVis.ps.get(a.tag)) for (const v of p.vil)
+      rows.push([a.tag, p.name, p.tribe || "", v.name, v.x, v.y, v.pop, v.cap ? "yes" : "", v.art, v.oz.map(o => `${xy(o.x, o.y)} ${o.bonus}`).join("; ")]);
     const cell = v => { v = String(v ?? ""); return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
-    const text = [cols.map(c => c.l), ...rows.map(r => cols.map(c => c.get(r)))].map(r => r.map(cell).join(",")).join("\n");
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
-    a.download = `ts32-${state.tab}-${D.snapshot.slice(0, 10)}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    a.href = URL.createObjectURL(new Blob([rows.map(r => r.map(cell).join(",")).join("\n")], { type: "text/csv" }));
+    a.download = `ts32-scout-${D.snapshot.slice(0, 10)}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
   window.addEventListener("hashchange", () => { readHash(); render(); });
 }
 function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.append(t); setTimeout(() => t.remove(), 2200); }
 
-// ── shareable state in the link ──
-const BASE = JSON.stringify(state);
-function defaults() { return JSON.parse(BASE); }
+// ── the link keeps the filters and the open alliances and players ──
 function writeHash() {
   const h = new URLSearchParams();
-  if (state.tab !== "players") h.set("tab", state.tab);
-  if (state.allies) h.set("a", state.allies.join("."));
-  if (state.tribe) h.set("t", state.tribe);
   if (state.q) h.set("q", state.q);
-  if (state.player >= 0) h.set("p", players[state.player].uid);
-  if (state.pop) h.set("pop", state.pop);
-  if (state.from) h.set("from", state.from === "point" ? `${state.ox}|${state.oy}` : state.from);
-  if (state.maxd) h.set("d", state.maxd);
-  for (const k of ["cap", "art", "sure"]) if (state[k]) h.set(k, 1);
-  if (state.bonus) h.set("b", state.bonus);
-  const [k, dir] = state.sort[state.tab]; if (k !== defaults().sort[state.tab][0] || dir !== defaults().sort[state.tab][1]) h.set("s", `${k}${dir > 0 ? "+" : "-"}`);
+  if (state.tribe) h.set("t", state.tribe);
+  if (state.sort !== "pop") h.set("s", state.sort);
+  if (state.openA.size) h.set("a", [...state.openA].join("."));
+  if (state.openP.size) h.set("p", [...state.openP].join("."));
+  if (!state.fit) h.set("fit", "0");
   const str = h.toString();
   history.replaceState(null, "", str ? `#${str}` : location.pathname + location.search);
 }
 function readHash() {
-  const h = new URLSearchParams(location.hash.slice(1)), d = defaults();
-  Object.assign(state, d);
-  if (["players", "villages", "oases"].includes(h.get("tab"))) state.tab = h.get("tab");
-  if (h.get("a")) state.allies = h.get("a").split(".").filter(t => D.alliances.some(a => a.tag === t));
-  state.tribe = h.get("t") || ""; state.q = h.get("q") || ""; state.bonus = h.get("b") || "";
-  const p = players.findIndex(p => String(p.uid) === h.get("p")); state.player = p;
-  state.pop = +h.get("pop") || 0; state.maxd = +h.get("d") || 0;
-  const from = h.get("from") || "";
-  if (/^-?\d+\|-?\d+$/.test(from)) { [state.ox, state.oy] = from.split("|").map(Number); state.from = "point"; }
-  else state.from = from === "home" ? "home" : "";
-  for (const k of ["cap", "art", "sure"]) state[k] = h.get(k) === "1";
-  const s = h.get("s"); if (s) state.sort[state.tab] = [s.slice(0, -1), s.endsWith("+") ? 1 : -1];
+  const h = new URLSearchParams(location.hash.slice(1));
+  state.q = h.get("q") || ""; state.tribe = h.get("t") || "";
+  state.sort = SORTS[h.get("s")] ? h.get("s") : "pop";
+  state.openA = new Set((h.get("a") || "").split(".").filter(t => alliances.some(a => a.tag === t)));
+  state.openP = new Set((h.get("p") || "").split(".").map(Number).filter(u => byUid.has(u)));
+  state.openV = new Set(); state.shutA = new Set(); state.shutP = new Set();
+  state.fit = h.get("fit") !== "0";
 }
 </script>
 </body>
