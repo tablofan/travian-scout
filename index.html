@@ -20,7 +20,7 @@
   --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --cols: 18px minmax(0, 1fr) 7rem 4.5rem 5.5rem 4rem 4rem;
+  --cols: 18px minmax(0, 1fr) 7rem 4.5rem 5.5rem 4rem 5.4rem;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -114,15 +114,16 @@ mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: in
 .ck input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .ck input:disabled { cursor: default; }
 .row.done > :not(.ck) { opacity: .4; }
-.sc { display: flex; justify-content: flex-end; }
-.send { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); font-size: 12px; text-decoration: none; }
+.sc { display: flex; justify-content: flex-end; gap: 4px; }
+.send { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); font-size: 12px; font-weight: 600; text-decoration: none; }
 .send:hover { border-color: var(--accent); color: var(--accent); }
 .send.off { color: var(--muted); border-style: dashed; }
 .empty { padding: 10px 14px 12px calc(38px + var(--ind, 0px)); color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
 .flash { animation: flash 1.4s ease-out; }
 @keyframes flash { from { background: color-mix(in srgb, var(--accent) 30%, transparent); } to { background: transparent; } }
 @media (max-width: 640px) {
-  :root { --cols: 18px minmax(0, 1fr) 4rem 2.4rem 3.6rem; }
+  :root { --cols: 18px minmax(0, 1fr) 3.6rem 2.2rem 4.9rem; }
+  .sc { gap: 3px; } .send { width: 24px; }
   .row { padding-right: 10px; }
   .c-tribe, .c-vil { display: none !important; }
   .lvl1 { --ind: 0px; } .lvl2 { --ind: 12px; } .lvl3 { --ind: 24px; }
@@ -156,8 +157,11 @@ canvas.over { cursor: pointer; }
 .fromhd { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
 .from h3 { font: 600 15px/1 var(--display); text-transform: uppercase; letter-spacing: .03em; margin: 0; }
 .from h3 span { color: var(--muted); font-weight: 500; }
-.field.per { grid-auto-flow: column; align-items: center; gap: 8px; }
-.field.per input { width: 88px; height: 28px; }
+.amts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.amts > span { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.field.per { grid-auto-flow: column; align-items: center; gap: 6px; }
+.field.per > span { font: 600 13px var(--body); color: var(--fg); letter-spacing: 0; }
+.field.per input { width: 80px; height: 28px; }
 .fromlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 4px; }
 .fv { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; font-size: 13px; cursor: pointer; }
 .fv:hover { border-color: var(--accent); }
@@ -201,11 +205,17 @@ canvas.over { cursor: pointer; }
       </div>
       <label class="check"><input type="checkbox" id="fit" checked> Zoom to expanded players</label>
       <section class="from" aria-labelledby="fromh">
-        <div class="fromhd"><h3 id="fromh">Send scouts from <span>Minerva</span></h3><label class="field per"><span>Scouts per send</span><input type="number" id="per" min="1" step="1" inputmode="numeric"></label></div>
+        <div class="fromhd"><h3 id="fromh">Send scouts from <span>Minerva</span></h3>
+          <div class="amts" id="per"><span>Scouts per send</span>
+            <label class="field per"><span>A</span><input type="number" min="1" step="1" inputmode="numeric" aria-label="Scouts for A"></label>
+            <label class="field per"><span>B</span><input type="number" min="1" step="1" inputmode="numeric" aria-label="Scouts for B"></label>
+            <label class="field per"><span>C</span><input type="number" min="1" step="1" inputmode="numeric" aria-label="Scouts for C"></label>
+          </div>
+        </div>
         <div class="fromlist" id="from" role="radiogroup" aria-labelledby="fromh"></div>
       </section>
       <div class="legend" id="legend"></div>
-      <div class="hint">Expand a player to draw their villages. Lines join each oasis to its village. Click a village on the map to open it in the list. Tick a row once you've scouted it. Ticks are shared: anyone with this page's link sees them and can change them. Scout opens the game's rally point with the village picked above, the target and the scouts filled in. It sends nothing until you confirm in game, and needs you logged in as Minerva.</div>
+      <div class="hint">Expand a player to draw their villages. Lines join each oasis to its village. Click a village on the map to open it in the list. Tick a row once you've scouted it. Ticks are shared: anyone with this page's link sees them and can change them. A, B and C open the game's rally point with the village picked above, the target and that many scouts filled in. They send nothing until you confirm in game, and need you logged in as Minerva.</div>
       <div class="meta" id="meta"></div>
     </aside>
   </main>
@@ -228,8 +238,8 @@ const FROM = [
   ["17 Wenzhou", 72898, -51, -167, 30079], ["18 Harbin", 70462, -44, -154, 23691], ["19 Chaozhou", 71745, -42, -173, 29473],
   ["20 Dongguan", 72451, -45, -173, 28437], ["21 Xi'an", 62494, -48, -139, 29230], ["22 Handan", 74498, -66, -161, 24307],
 ].map(([name, did, x, y, scouts]) => ({ name, did, x, y, scouts }));
-const FROM_KEY = "ts32-scout-from", PER_KEY = "ts32-scout-per";
-let from = null, per = 500;
+const FROM_KEY = "ts32-scout-from", PER_KEY = "ts32-scout-amounts", SENDS = ["A", "B", "C"];
+let from = null, per = [100, 500, 2000];  // scouts for the A, B and C buttons
 
 let D, S2, alliances, players, villages, oases;
 const byUid = new Map();
@@ -339,9 +349,10 @@ function init() {
   try {
     $("#who").value = localStorage.getItem(NAME) || "";
     from = FROM.find(f => f.did === +localStorage.getItem(FROM_KEY)) || null;
-    per = Math.floor(+localStorage.getItem(PER_KEY)) || per;
+    const kept = JSON.parse(localStorage.getItem(PER_KEY) || "null");
+    if (Array.isArray(kept) && kept.length === SENDS.length && kept.every(n => Number.isInteger(n) && n >= 1)) per = kept;
   } catch { /* no storage */ }
-  $("#per").value = per;
+  document.querySelectorAll("#per input").forEach((el, i) => { el.value = per[i]; });
   syncFrom();
   readHash();
   bind();
@@ -483,16 +494,17 @@ function ck(kind, key, label, via, part) {
 // Nothing goes until whoever sits Minerva presses Send and then Confirm in game.
 const dist = (a, b) => Math.hypot(wrapc(b.x - a.x), wrapc(b.y - a.y));
 function send(t, label) {
-  if (!from) return `<span class="sc"><a class="send off" href="#from" data-go="${vkey(t)}" title="Pick the village to send from, under the map" aria-label="Scout ${esc(label)}">Scout</a></span>`;
-  const href = `${D.server}/build.php?newdid=${from.did}&amp;gid=16&amp;tt=2&amp;eventType=4&amp;x=${t.x}&amp;y=${t.y}&amp;troop%5Bt4%5D=${per}`;
-  const title = `Send ${fmt(per)} scouts from ${from.name} to ${xy(t.x, t.y)}, ${dist(from, t).toFixed(1)} fields away`;
-  return `<span class="sc"><a class="send" href="${href}" target="_blank" rel="noopener" data-go="${vkey(t)}" title="${esc(title)}" aria-label="Scout ${esc(label)} from ${esc(from.name)}">Scout</a></span>`;
+  const away = from && dist(from, t).toFixed(1);
+  return `<span class="sc">${SENDS.map((k, i) => from
+    ? `<a class="send" href="${D.server}/build.php?newdid=${from.did}&amp;gid=16&amp;tt=2&amp;eventType=4&amp;x=${t.x}&amp;y=${t.y}&amp;troop%5Bt4%5D=${per[i]}" target="_blank" rel="noopener" data-go="${k}${vkey(t)}"`
+      + ` title="${esc(`${k}: send ${fmt(per[i])} scouts from ${from.name} to ${xy(t.x, t.y)}, ${away} fields away`)}" aria-label="Scout ${esc(label)} with ${fmt(per[i])} from ${esc(from.name)}">${k}</a>`
+    : `<a class="send off" href="#from" data-go="${k}${vkey(t)}" title="Pick the village to send from, under the map" aria-label="Scout ${esc(label)}, ${k}">${k}</a>`).join("")}</span>`;
 }
 function syncFrom() {
   for (const el of document.querySelectorAll("#from .fv")) {
     const box = el.querySelector("input"), f = FROM.find(f => f.did === +box.value);
     box.checked = f === from;
-    el.classList.toggle("low", f.scouts < per);
+    el.classList.toggle("low", f.scouts < Math.min(...per));
   }
 }
 
@@ -672,9 +684,10 @@ function bind() {
     syncFrom(); render();
   });
   $("#per").addEventListener("input", e => {
-    const n = Math.floor(+e.target.value); if (!(n >= 1)) return;
-    per = n;
-    try { localStorage.setItem(PER_KEY, n); } catch { /* not kept */ }
+    const i = [...document.querySelectorAll("#per input")].indexOf(e.target), n = Math.floor(+e.target.value);
+    if (i < 0 || !(n >= 1)) return;
+    per = per.with(i, n);
+    try { localStorage.setItem(PER_KEY, JSON.stringify(per)); } catch { /* not kept */ }
     syncFrom(); render();
   });
   $("#expand").addEventListener("click", () => {
