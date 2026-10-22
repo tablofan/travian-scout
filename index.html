@@ -117,6 +117,7 @@ mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: in
 .sc { display: flex; justify-content: flex-end; gap: 4px; }
 .send { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); font-size: 12px; font-weight: 600; text-decoration: none; }
 .send:hover { border-color: var(--accent); color: var(--accent); }
+.send.all { background: var(--sunk); cursor: pointer; padding: 0; }
 .send.off { color: var(--muted); border-style: dashed; }
 .empty { padding: 10px 14px 12px calc(38px + var(--ind, 0px)); color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
 .flash { animation: flash 1.4s ease-out; }
@@ -215,7 +216,7 @@ canvas.over { cursor: pointer; }
         <div class="fromlist" id="from" role="radiogroup" aria-labelledby="fromh"></div>
       </section>
       <div class="legend" id="legend"></div>
-      <div class="hint">Expand a player to draw their villages. Lines join each oasis to its village. Click a village on the map to open it in the list. Tick a row once you've scouted it. Ticks are shared: anyone with this page's link sees them and can change them. A, B and C open the game's rally point with the village picked above, the target and that many scouts filled in. They send nothing until you confirm in game, and need you logged in as Minerva.</div>
+      <div class="hint">Expand a player to draw their villages. Lines join each oasis to its village. Click a village on the map to open it in the list. Tick a row once you've scouted it. Ticks are shared: anyone with this page's link sees them and can change them. A, B and C open the game's rally point with the village picked above, the target and that many scouts filled in. On a player's row they open one tab per oasis of theirs not ticked yet; allow pop-ups for this page so the browser lets them all open. They send nothing until you confirm in game, and need you logged in as Minerva.</div>
       <div class="meta" id="meta"></div>
     </aside>
   </main>
@@ -447,7 +448,7 @@ function render() {
       const po = openP(p, vis);
       h.push(`<div class="row p lvl1${doneP(p) ? " done" : ""}" data-hp="${p.uid}">${ck("p", p.k, p.name, null, partP(p))}
         <span class="namecell"><button class="tg" type="button" data-p="${p.uid}" aria-expanded="${po}"><span class="car"></span>${po ? `<i class="sw" style="--sw:${colorVar(p)}"></i>` : `<i class="sw off"></i>`}<span class="lbl">${hl(p.name, q)}</span></button><a class="out" href="${D.server}/profile/${p.uid}" target="_blank" rel="noopener" title="Profile in game" aria-label="${esc(p.name)} profile in game">↗</a></span>
-        <span class="t c-tribe">${esc(p.tribe || "")}</span><span class="n c-vil">${p.vil.length}</span><span class="n">${fmt(p.pop)}</span><span class="n">${p.oz.length}</span><span></span></div>`);
+        <span class="t c-tribe">${esc(p.tribe || "")}</span><span class="n c-vil">${p.vil.length}</span><span class="n">${fmt(p.pop)}</span><span class="n">${p.oz.length}</span>${sendAll(p)}</div>`);
       if (po) h.push(playerKids(p, q));
     }
     h.push(`</div>`);
@@ -493,12 +494,35 @@ function ck(kind, key, label, via, part) {
 // The game's rally point send form, filled in: from the picked village, to this tile, as a raid of scouts only.
 // Nothing goes until whoever sits Minerva presses Send and then Confirm in game.
 const dist = (a, b) => Math.hypot(wrapc(b.x - a.x), wrapc(b.y - a.y));
+const sendUrl = (t, i) => `${D.server}/build.php?newdid=${from.did}&gid=16&tt=2&eventType=4&x=${t.x}&y=${t.y}&troop%5Bt4%5D=${per[i]}`;
+const OFF = `title="Pick the village to send from, under the map"`;
 function send(t, label) {
   const away = from && dist(from, t).toFixed(1);
   return `<span class="sc">${SENDS.map((k, i) => from
-    ? `<a class="send" href="${D.server}/build.php?newdid=${from.did}&amp;gid=16&amp;tt=2&amp;eventType=4&amp;x=${t.x}&amp;y=${t.y}&amp;troop%5Bt4%5D=${per[i]}" target="_blank" rel="noopener" data-go="${k}${vkey(t)}"`
+    ? `<a class="send" href="${esc(sendUrl(t, i))}" target="_blank" rel="noopener" data-go="${k}${vkey(t)}"`
       + ` title="${esc(`${k}: send ${fmt(per[i])} scouts from ${from.name} to ${xy(t.x, t.y)}, ${away} fields away`)}" aria-label="Scout ${esc(label)} with ${fmt(per[i])} from ${esc(from.name)}">${k}</a>`
-    : `<a class="send off" href="#from" data-go="${k}${vkey(t)}" title="Pick the village to send from, under the map" aria-label="Scout ${esc(label)}, ${k}">${k}</a>`).join("")}</span>`;
+    : `<a class="send off" href="#from" data-go="${k}${vkey(t)}" ${OFF} aria-label="Scout ${esc(label)}, ${k}">${k}</a>`).join("")}</span>`;
+}
+// A player's row sends to each of their oases not ticked yet: one tab per oasis.
+const oasesLeft = p => [...p.vil.flatMap(v => v.oz), ...p.loose].filter(o => !doneO(o));  // in list order
+function sendAll(p) {
+  const n = oasesLeft(p).length;
+  if (!n) return `<span></span>`;
+  return `<span class="sc">${SENDS.map((k, i) => `<button class="send all${from ? "" : " off"}" type="button" data-all="${i}:${p.uid}" `
+    + (from ? `title="${esc(`${k}: open ${n} tabs, one per oasis of ${p.name} not ticked yet, ${fmt(per[i])} scouts each from ${from.name}`)}"` : OFF)
+    + ` aria-label="Scout all ${n} oases of ${esc(p.name)} with ${k}">${k}</button>`).join("")}</span>`;
+}
+// Browsers let one click open one tab; the rest need pop-ups allowed for this page.
+function sendOases(p, i) {
+  const left = oasesLeft(p);
+  if (left.length > 5 && !confirm(`Open ${left.length} tabs, one per oasis of ${p.name}, each with ${fmt(per[i])} scouts from ${from.name}?`)) return;
+  let opened = 0;
+  for (const o of left) {
+    const w = window.open(sendUrl(o, i), "_blank");
+    if (!w) break;
+    w.opener = null; opened++;
+  }
+  if (opened < left.length) toast(`Your browser blocked ${left.length - opened} of ${left.length} tabs. Allow pop-ups for this page in the address bar, then click again.`);
 }
 function syncFrom() {
   for (const el of document.querySelectorAll("#from .fv")) {
@@ -662,6 +686,8 @@ function bind() {
   const tree = $("#tree");
   tree.addEventListener("click", e => {
     if (e.target.closest(".send.off")) { e.preventDefault(); toast("Pick the village to send from, under the map."); $("#from").scrollIntoView({ block: "nearest" }); return; }
+    const all = e.target.closest(".send.all");
+    if (all) { const [i, uid] = all.dataset.all.split(":").map(Number); sendOases(byUid.get(uid), i); return; }
     const b = e.target.closest("button.tg"); if (!b) return;
     if (b.dataset.a) toggleA(b.dataset.a);
     else if (b.dataset.p) toggleP(+b.dataset.p);

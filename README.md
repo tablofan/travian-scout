@@ -4,4 +4,4 @@ A filterable list of the players, villages and oases of IMX, IMXx and NBD on ts3
 
 Scouted ticks are shared. They live in a small Cloudflare Worker with a Durable Object (`worker/`), so anyone with the link sees and changes the same ticks, live. Deploy it with `cd worker && npx wrangler deploy`.
 
-The A, B and C buttons open the game's rally point with Minerva's picked village, the target and that many scouts filled in. They send nothing on their own.
+The A, B and C buttons open the game's rally point with Minerva's picked village, the target and that many scouts filled in. On a player's row they open one tab per oasis not ticked yet. They send nothing on their own.
